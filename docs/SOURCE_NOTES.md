@@ -84,28 +84,29 @@ client-side re-ranking rather than relying on the site's combined-filter "Best M
 
 ## Trac (trac.jobs and individual trust subdomains, e.g. jobs.uhnm.nhs.uk)
 
-**Checked:** 2026-09-24, from the same sandboxed cloud dev environment. **Inconclusive — must be
-redone from the real dev machine before writing `trac_generic.py`.**
+**Checked twice** (2026-09-24), from Claude's sandboxed cloud dev environment, using two
+independent fetch mechanisms (raw `curl` with realistic browser headers, and a separate fetch tool
+with its own network path). **Both attempts agree — this environment genuinely cannot complete
+Trac recon; it must be done from a normal residential/office network.**
 
-- `https://trac.jobs/`, `https://www.trac.jobs/`, `https://apps.trac.jobs/` all returned **HTTP
-  403** from this sandbox — the connection succeeds but is blocked at a WAF/bot-protection layer
-  (consistent with the plan's anticipation of anti-bot measures on Trac). This is a block on *this
-  environment's* request (missing/suspicious headers, datacenter IP reputation, or similar), not
-  necessarily a block on a normal browser session.
+- `https://trac.jobs/`, `https://www.trac.jobs/`, `https://apps.trac.jobs/` consistently return
+  **HTTP 403** — the connection succeeds but is blocked at a WAF/bot-protection layer, even with a
+  realistic Chrome user-agent and standard Accept/Accept-Language headers. Consistent with the
+  plan's anticipation of anti-bot measures on Trac.
 - Individual trust subdomains — `jobs.uhnm.nhs.uk` (University Hospitals of North Midlands, the
-  plan's chosen placeholder trust) and `jobs.nhsbsa.nhs.uk` — both **timed out at the TCP level**
-  (connection never established) from this sandbox, while `www.jobs.nhs.uk` (a similarly-suffixed
-  `*.nhs.uk` domain) worked fine. This looks like infra/geo-blocking specific to individual trust
-  hosting, not a blanket `*.nhs.uk` block.
+  plan's placeholder trust) and `jobs.nhsbsa.nhs.uk` — consistently **fail to connect at all**
+  (TCP-level timeout / connection refused), while `www.jobs.nhs.uk` (a similarly-suffixed
+  `*.nhs.uk` domain) works fine. This looks like infra/geo-blocking specific to individual trust
+  hosting or its CDN, not a blanket `*.nhs.uk` block, and not something worth routing around (e.g.
+  via a proxy) — doing so would cross from "conservative scraping" into anti-bot evasion, which the
+  plan explicitly rules out.
 
-**Action required (Phase 0, human, real machine):** open `https://jobs.uhnm.nhs.uk/` (or whichever
-trust is actually the target) in a real browser, confirm it loads, read its
-robots.txt/Terms/Acceptable-Use, and use DevTools → Network while performing a normal search to
-see whether results come back as a JSON XHR call or plain HTML — then update this section and
-proceed with `trac_generic.py` per the connector decision procedure in the plan. Do **not** attempt
-to route around trac.jobs's 403 (e.g. spoofing headers to defeat a WAF) — if a real browser session
-also gets blocked, that's a signal to use the manual-paste fallback for that source rather than
-fighting the protection.
+**Action required (Phase 0, human, real machine) — not yet done:** open
+`https://jobs.uhnm.nhs.uk/` (or whichever trust is actually the target) in a real browser on your
+own network, confirm it loads, read its robots.txt/Terms/Acceptable-Use, and use DevTools →
+Network while performing a normal search to see whether results come back as a JSON XHR call or
+plain HTML — then update this section and proceed with `trac_generic.py` per the connector
+decision procedure in the plan.
 
 ## Caveat on all of the above
 
@@ -113,5 +114,5 @@ These checks were run from Claude's sandboxed execution environment, not the use
 its network path, IP reputation, and geographic location may differ from the user's normal browsing
 context in ways that matter for this kind of site (see the Trac findings above, where the same
 suffix behaved differently for different hosts). Treat the NHS Jobs findings as solid (multiple
-successful real HTML fetches with expected structure) but re-verify the Trac findings for real
-before building against them.
+successful real HTML fetches with expected structure) but the Trac findings remain unverified —
+Phase 0 for Trac is still outstanding and blocking `trac_generic.py`.

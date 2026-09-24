@@ -1,0 +1,62 @@
+# Copy this file to data/profile.yaml and fill in your real details.
+# data/ is gitignored, so your real profile never gets committed.
+#
+# Only put facts here that are TRUE and that you can back up if asked at
+# interview — the tailoring engine is instructed to never invent anything
+# beyond what's in this file, so anything missing here will show up as a
+# "flagged gap" on an application rather than a fabricated answer.
+
+contact:
+  full_name: "Jane Example"
+  email: "jane@example.com"
+  phone: "+44 7000 000000"
+  location: "Manchester, UK"
+
+professional_summary: >
+  A 2-4 sentence summary of who you are professionally — role, years of
+  experience, specialism, and what you're looking for next.
+
+work_history:
+  - employer: "Example NHS Trust"
+    title: "Staff Nurse"
+    start_date: "2021-09"
+    end_date: "present"
+    location: "Manchester"
+    achievements:
+      - "Led the induction programme for 8 newly qualified nurses on the ward."
+      - "Reduced average medication round time by 15% by restructuring the trolley round."
+    values_evidence:
+      - criterion: "Compassion / patient dignity"
+        story: "A specific, real example of a time you demonstrated this — situation, action, outcome."
+
+  - employer: "Previous Employer"
+    title: "Previous Job Title"
+    start_date: "2018-06"
+    end_date: "2021-08"
+    location: "Leeds"
+    achievements:
+      - "Achievement or responsibility, ideally with a number attached."
+
+education:
+  - institution: "Example University"
+    qualification: "BSc (Hons) Nursing"
+    start_date: "2015-09"
+    end_date: "2018-06"
+    grade: "First Class"
+
+professional_registrations:
+  - body: "NMC"
+    pin_or_number: "12A3456B"
+    expiry: "2027-03"
+
+skills:
+  - "Clinical skill or competency"
+  - "Another skill — keep these specific, not generic buzzwords"
+
+training_cpd:
+  - "Relevant course/certification, with year"
+
+referees:
+  - name: "Referee Name"
+    relationship: "Line manager"
+    contact: "email or phone, only if you're comfortable listing it here"
