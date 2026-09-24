@@ -20,6 +20,8 @@
   .job .meta { color: #666; font-size: 0.9rem; margin-bottom: 0.25rem; }
   .job .source-badge { display: inline-block; font-size: 0.75rem; color: #666; border: 1px solid #999; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
   .job .sponsor-badge { display: inline-block; font-size: 0.75rem; color: #1a7a3c; border: 1px solid #1a7a3c; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
+  .job .role-sponsor-yes { display: inline-block; font-size: 0.75rem; color: #1a7a3c; border: 1px solid #1a7a3c; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
+  .job .role-sponsor-no { display: inline-block; font-size: 0.75rem; color: #a04a00; border: 1px solid #a04a00; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
   .job a { font-size: 0.9rem; }
   .job .attribution { font-size: 0.75rem; margin-top: 0.4rem; }
   .empty { color: #666; }
@@ -60,6 +62,12 @@ const pollBtn = document.getElementById('poll-btn');
 
 const SOURCE_LABELS = { nhs_jobs: 'NHS Jobs', adzuna: 'Adzuna', reed: 'Reed', manual: 'Pasted' };
 
+function roleSponsorBadge(status) {
+  if (status === 'no_sponsorship') return '<span class="role-sponsor-no">⚠ role states: no sponsorship</span>';
+  if (status === 'sponsorship_available') return '<span class="role-sponsor-yes">✓ role states: sponsorship available</span>';
+  return '';
+}
+
 function renderJobs(jobs) {
   if (!jobs.length) {
     resultsEl.innerHTML = '<p class="empty">No matches yet.</p>';
@@ -67,7 +75,7 @@ function renderJobs(jobs) {
   }
   resultsEl.innerHTML = jobs.map(j => `
     <div class="job">
-      <h3>${escapeHtml(j.title)}<span class="source-badge">${escapeHtml(SOURCE_LABELS[j.source] || j.source)}</span>${j.visa_sponsor_likely ? '<span class="sponsor-badge">✓ registered visa sponsor</span>' : ''}</h3>
+      <h3>${escapeHtml(j.title)}<span class="source-badge">${escapeHtml(SOURCE_LABELS[j.source] || j.source)}</span>${j.visa_sponsor_likely ? '<span class="sponsor-badge">✓ registered visa sponsor</span>' : ''}${roleSponsorBadge(j.role_sponsorship_status)}</h3>
       <div class="meta">${escapeHtml(j.org_name)}${j.location ? ' — ' + escapeHtml(j.location) : ''}</div>
       ${j.salary_range ? `<div class="meta">${escapeHtml(j.salary_range)}</div>` : ''}
       ${j.closing_date ? `<div class="meta">Closes: ${escapeHtml(j.closing_date)}</div>` : ''}

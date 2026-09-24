@@ -105,8 +105,16 @@ class NHSJobsConnector(BaseConnector):
         location_parts = [text_of("employer_town"), text_of("employer_county"), text_of("employer_postcode")]
         location = ", ".join(p for p in location_parts if p)
 
-        description_el = soup.find(id="job_description_large") or soup.find(id="job_overview")
-        raw_description_text = description_el.get_text(" ", strip=True) if description_el else ""
+        # #job_description_large exists in the DOM on most postings but is
+        # empty — an `or` on element presence alone silently picked it over
+        # real content. Join whichever of these actually have text instead.
+        description_parts = []
+        for section_id in ("job_overview", "job_description", "job_description_large", "about_organisation"):
+            el = soup.find(id=section_id)
+            text = el.get_text(" ", strip=True) if el else ""
+            if text:
+                description_parts.append(text)
+        raw_description_text = "\n\n".join(description_parts)
 
         criteria = self._parse_person_spec(soup)
 

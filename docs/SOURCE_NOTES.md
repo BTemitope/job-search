@@ -23,11 +23,30 @@ current link off the publication page rather than hardcoding it.
   a non-match is not proof of "not a sponsor," since a genuine legal rename like this one can't be
   bridged by any reasonable fuzzy-matching. UI/CLI must never render `None` as a negative claim.
 
-**Deferred**: per-role sponsorship text detection (scanning ad text for "we cannot sponsor this
-role" type statements) was considered and explicitly not built for v1 — a real sample already in
-hand (the HealthJobsUK detail page above) contains boilerplate disclaimer text ("we are unable to
-offer sponsorship for some job roles...") that looks like a standard NHS/Trac ad template insert,
-not a per-role statement. A naive keyword heuristic would false-positive on this constantly.
+**Update — per-role detection was built after all**, once the user asked the natural follow-up
+(does a posting saying "no sponsorship" still show the employer's ✓ badge? yes, which is
+misleading). `visa_sponsor.classify_role_sponsorship()` uses the LLM, not regex, specifically
+*because* of the boilerplate-vs-genuine-statement ambiguity above — tested directly against the
+real HealthJobsUK boilerplate text (correctly classified `not_mentioned`) and two constructed
+genuine statements (correctly classified `no_sponsorship`/`sponsorship_available`). Two cost
+controls precede any LLM call: a free substring pre-filter (skip immediately if the text doesn't
+contain "sponsor" at all — the large majority of ads), and a cache keyed by a hash of the exact
+description text (`data/role_sponsorship_cache.json`), since polling re-fetches the same
+still-open postings repeatedly. **Live-confirmed on a real, unprompted posting**: searching
+"overseas nurse"/"visa sponsorship" surfaced a real "Bank Care Assistant" ad at Agincare containing
+"we cannot currently offer sponsorship" — correctly classified `no_sponsorship`, with the CLI
+showing "⚠ role states: no sponsorship" exactly as intended.
+
+**Bug found and fixed while building this**: `connectors/nhs_jobs.py`'s description extraction was
+`soup.find(id="job_description_large") or soup.find(id="job_overview")` — but
+`#job_description_large` exists (empty) on essentially every real posting, so the `or` picked an
+empty element over `#job_overview`'s real content, silently. Confirmed live: `raw_description_text`
+was empty for 9 of 10 real postings polled before the fix. Real NHS Jobs detail pages actually have
+a *third*, differently-named element — `#job_description` (singular, "Main duties of the job") —
+plus `#about_organisation` ("About us"). Fixed to join whichever of `job_overview` /
+`job_description` / `job_description_large` / `about_organisation` actually have text, checking
+content rather than element presence — this also improves full-text search relevance for every
+NHS Jobs posting going forward, not just the sponsorship feature that surfaced it.
 
 **Licensing**: gov.uk publications are conventionally Open Government Licence v3.0, though this
 specific page didn't state it explicitly when checked — the register is clearly intended for
@@ -95,7 +114,7 @@ on a real "Specialist Podiatrist" posting.
 | Working pattern | the `<p>` after `#working_pattern_heading` |
 | Reference number | `#trac-job-reference` when present (confirms the posting originates from Trac) |
 | Location | `#employer_town` / `#employer_county` / `#employer_postcode` |
-| Description | `#job_description_large` (fuller) or `#job_overview` (fallback) |
+| Description | Join of `#job_overview`, `#job_description` ("Main duties of the job"), `#about_organisation` ("About us"), and `#job_description_large` if any has content — `#job_description_large` exists in the DOM but is *empty* on most real postings (found the hard way, see the bug-fix note further down); filter by actual text, not element presence |
 | Person Specification | `<h2>Person Specification</h2>` then sibling `<h3>` (category) / `<h4>` (Essential or Desirable) / `<ul><li>` (criteria text), repeating per category. Rendered twice on the page (a `hide-mobile` div and a duplicate `show-mobile` `<details>`) — only the first (`<h2>`-based) occurrence should be parsed. |
 
 **Search result item map** (`/candidate/search/results?keyword=<kw>&location=<loc>&page=<n>`):

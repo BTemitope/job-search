@@ -13,6 +13,14 @@ from tailoring import docx_export, llm_client
 from tailoring.profile import ProfileError, load_profile
 
 
+def _role_sponsorship_note(job) -> str:
+    if job.role_sponsorship_status == "no_sponsorship":
+        return "  ⚠ role states: no sponsorship"
+    if job.role_sponsorship_status == "sponsorship_available":
+        return "  ✓ role states: sponsorship available"
+    return ""
+
+
 def cmd_search(args: argparse.Namespace) -> None:
     db.init_db()
     results = search_jobs(
@@ -29,7 +37,7 @@ def cmd_search(args: argparse.Namespace) -> None:
         return
     for job in results:
         sponsor_note = "  ✓ registered visa sponsor" if job.visa_sponsor_likely else ""
-        print(f"[{job.source}] {job.title} — {job.org_name}{sponsor_note}")
+        print(f"[{job.source}] {job.title} — {job.org_name}{sponsor_note}{_role_sponsorship_note(job)}")
         if job.location:
             print(f"    {job.location}")
         if job.salary_range:
@@ -103,7 +111,7 @@ def cmd_nlsearch(args: argparse.Namespace) -> None:
         return
     for job in results:
         sponsor_note = "  ✓ registered visa sponsor" if job.visa_sponsor_likely else ""
-        print(f"[{job.source}] {job.title} — {job.org_name}{sponsor_note}")
+        print(f"[{job.source}] {job.title} — {job.org_name}{sponsor_note}{_role_sponsorship_note(job)}")
         if job.location:
             print(f"    {job.location}")
         if job.salary_range:

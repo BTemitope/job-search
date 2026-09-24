@@ -52,6 +52,18 @@ deployed to Render via the included `render.yaml`.
   legal name) proving that "no match" isn't reliable evidence either way, so unmatched employers
   just show no badge rather than a false negative. Filter with `--sponsors-only` (CLI) or the
   "Only show employers registered as UK visa sponsors" checkbox (web).
+- **Phase 10 (per-role sponsorship status):** built and **live-verified on a real, unprompted
+  posting** — searching "overseas nurse"/"visa sponsorship" surfaced a real NHS Jobs ad (Agincare,
+  "Bank Care Assistant") stating "we cannot currently offer sponsorship," which was correctly
+  classified `no_sponsorship` and shown as "⚠ role states: no sponsorship" — distinct from, and a
+  necessary complement to, the employer-level badge above (an employer can be a general sponsor
+  while a specific role is excluded). Uses the LLM rather than keyword matching specifically
+  because a real ad's generic boilerplate disclaimer text would false-positive a naive regex; a
+  free substring pre-filter and a per-posting cache keep LLM calls limited to postings that
+  actually mention sponsorship. **Bug fixed along the way**: `connectors/nhs_jobs.py` was silently
+  picking an empty HTML element over real content for the description field on ~90% of postings
+  (`raw_description_text` was empty) — fixed, which also improves full-text search relevance for
+  everything already using that field.
 - **Browser extension autofill:** not started.
 
 ## Setup
