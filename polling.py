@@ -4,12 +4,14 @@ from datetime import datetime, timezone
 
 import db
 from connectors.adzuna import AdzunaConnector
+from connectors.healthjobsuk import HealthJobsUKConnector
 from connectors.nhs_jobs import NHSJobsConnector
 from connectors.reed import ReedConnector
 from models import SearchQuery
 
 CONNECTORS = {
     "nhs_jobs": NHSJobsConnector,
+    "healthjobsuk": HealthJobsUKConnector,
     "adzuna": AdzunaConnector,
     "reed": ReedConnector,
 }

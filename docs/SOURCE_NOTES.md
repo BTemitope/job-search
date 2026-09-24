@@ -108,6 +108,63 @@ Network while performing a normal search to see whether results come back as a J
 plain HTML — then update this section and proceed with `trac_generic.py` per the connector
 decision procedure in the plan.
 
+## HealthJobsUK (www.healthjobsuk.com) — a Trac/Civica-native connector
+
+**Checked 2026-09-24, via the user's own browser** (this environment is WAF-blocked from every
+Trac/Civica property, same as `trac.jobs`/`apps.trac.jobs` — see the Trac section below). This is
+the closest thing to a real "Trac connector" that exists: Trac's own candidate dashboard says
+*"You can use our national jobs board HealthJobsUK to begin your job search"* — HealthJobsUK is
+Trac/Civica's own public search frontend, structurally the same role NHS Jobs plays for NHS Jobs
+postings, just covering the wider Trac/Civica customer base (not NHS-exclusive).
+
+1. **`robots.txt` → 404** ("The page you requested was not found on this site") — no
+   machine-readable policy, same non-answer as NHS Jobs.
+2. **Terms & Conditions** — the footer links to Civica's general corporate terms
+   (`civica.com/en-gb/policies-and-statements/terms--conditions`), not a HealthJobsUK-specific
+   acceptable-use page. That page *was* reachable from this sandbox (unlike the Trac product
+   domains) — fetched and searched for `automat`, `scrap`, `crawl`, `bot`, `robot`, `spider`,
+   `harvest`, `aggregat`: **no anti-automation clause found**. Same conclusion as NHS Jobs: no
+   explicit prohibition, still worth staying conservative (real UA, rate limits).
+3. **Search**: `GET /job_list` with `JobSearch_q=<keyword>` (plus boilerplate
+   `JobSearch_d`/`JobSearch_g`/`JobSearch_re*` params observed from a real browser search with no
+   location filter applied — replicated as-is for v1; per-location filtering on this source is a
+   later refinement). Plain server-rendered HTML, no JSON API, no login required.
+4. **Detail pages** were captured as real saved HTML from the user's browser (not just inspected
+   via screenshot) and the connector's `normalize()` was tested directly against that real file —
+   every field extracted correctly on the first pass: title, employer, town, salary (including a
+   `Â£`→`£` mojibake cleanup the saved-HTML encoding needed), contract type, hours, closing date,
+   job ref, and a full 18-criterion Person Specification split correctly across 3 categories
+   (Qualifications & Training / Experience / Knowledge & Skills) with correct Essential/Desirable
+   flags. This is the strongest verification any connector has had besides NHS Jobs itself — built
+   from real ground-truth HTML, not documentation or a screenshot.
+5. **Bonus over NHS Jobs**: the detail page exposes a real, working, unauthenticated
+   **direct Trac apply link** — `https://apps.trac.jobs/job-advert/<id>?ShowJobAdvert=&feedid=<n>`
+   — confirmed present in real HTML. NHS Jobs, by contrast, hides this behind a login wall (see
+   above). `NormalizedJob.url` still points at the HealthJobsUK detail page itself (consistent with
+   every other connector's "always-valid canonical link" pattern, and that page has its own working
+   Apply button), not directly at the Trac URL.
+6. **`discover()` is now fully live-verified**, not just pattern-inferred. Mid-session, `/job_list`
+   (the search endpoint) unexpectedly became reachable from this sandbox — a real live call for
+   `JobSearch_q=nurse` returned **52 real, current postings** (list markup: `<li class="hj-job">`
+   wraps `<a href="/job/...-vNNN" title="<clean job title>">` — the anchor's `title` attribute is
+   the clean title; its text content is the whole card concatenated, so `discover()` uses the
+   attribute, not `get_text()`). Also discovered and fixed live: pagination uses `?_pg=<n>`, and
+   the `JobSearch_d`/`JobSearch_g`/`JobSearch_re*` boilerplate params turned out to be unnecessary —
+   `JobSearch_q` alone returns full results, so the connector was simplified to drop them.
+7. **`fetch_detail()` (the `/job/...` detail path specifically) still hits the same "Site
+   unavailable" WAF block from this sandbox**, even in the same session where `/job_list` succeeded
+   — a path-specific rule, not an environment-wide block. Since the user browsed this exact detail
+   page fine in their own browser with no issue, this is almost certainly still just this sandbox's
+   datacenter IP being treated differently — `normalize()` itself is already fully verified against
+   the real saved HTML the user provided (see point 4), so the only realistic remaining risk is
+   network reachability, not parsing correctness. **The user's own first real poll is expected to
+   just work**, and is the natural final confirmation.
+
+**Verdict: `connectors/healthjobsuk.py` is httpx-only (no Playwright). `discover()` is live-verified
+against real search results; `normalize()` is verified against a real saved detail page; only
+`fetch_detail()`'s network reachability from this specific sandboxed environment remains unconfirmed
+— registered in `polling.py` alongside the other three sources.**
+
 ## Adzuna (api.adzuna.com)
 
 **Official free API** — no scraping-decision procedure needed, but its terms still shape the

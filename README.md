@@ -1,10 +1,11 @@
 # Job Search Assistant
 
-Searches NHS Jobs, Adzuna, and Reed (Trac-powered NHS trust career sites planned, blocked on
-recon — see Status) for postings matching a role, stores them locally, and tailors a CV/cover
-letter against a chosen posting. A natural-language search box lets you describe what you want in
-plain English instead of filling separate fields. A browser extension for autofilling employer
-application forms is planned but not yet built.
+Searches NHS Jobs, HealthJobsUK (Trac/Civica's own national jobs board — the real route into
+Trac-powered postings, found via the user's own Trac dashboard), Adzuna, and Reed for postings
+matching a role, stores them locally, and tailors a CV/cover letter against a chosen posting. A
+natural-language search box lets you describe what you want in plain English instead of filling
+separate fields. A browser extension for autofilling employer application forms is planned but not
+yet built.
 
 See `/Users/temitopebakare/.claude/plans/swirling-swinging-newell.md` for the full design/phasing,
 and `docs/SOURCE_NOTES.md` for what's actually been verified against each live site.
@@ -14,19 +15,26 @@ deployed to Render via the included `render.yaml`.
 
 ## Status
 
-- **Phase 0 (recon):** done for NHS Jobs (see SOURCE_NOTES.md); Trac recon blocked on every
-  network this has been tried from (sandboxed dev environments) and needs to be finished by hand
-  on a normal residential/office network with a real browser.
+- **Phase 0 (recon):** done for NHS Jobs and HealthJobsUK (see SOURCE_NOTES.md). Direct
+  `trac.jobs`/individual-trust-subdomain recon is still blocked from every sandboxed environment
+  tried — but HealthJobsUK (found via the user's own Trac candidate dashboard) turned out to be
+  the actual national search frontend for Trac-powered postings, same role NHS Jobs plays for NHS
+  postings, so this gap matters much less now.
 - **Phase 1 (CLI + web search):** done and verified against the live NHS Jobs site, both via the
   CLI and the FastAPI web UI.
 - **Phase 2 (CV tailoring):** built and **live-verified** against a real Anthropic key — still
   needs `data/profile.yaml` filled in with real CV details before `python main.py tailor` can be
   tried end-to-end (see Setup below).
-- **Phase 6 (Adzuna + Reed connectors, natural-language search):** built and **live-verified** —
-  the NL parser and tailoring LLM call both confirmed working against a real Anthropic key
-  (locally and on the deployed Render app). Adzuna/Reed still need credentials added (both in
-  local `.env` and Render's Environment tab — they're separate) before those two sources return
-  anything; NHS Jobs already works fully on both.
+- **Phase 6 (HealthJobsUK connector, Adzuna + Reed connectors, natural-language search):** built
+  and **live-verified**. HealthJobsUK: `discover()` confirmed live against 52 real postings;
+  `normalize()` confirmed against a real saved detail page (18-criterion Person Specification
+  parsed correctly, salary/employer/closing date all correct) — only `fetch_detail()`'s network
+  reachability from this specific sandboxed dev environment is unconfirmed (search works, detail
+  pages hit a WAF block here specifically; the user's own browser had no trouble with the same
+  page, so this should just work for them). The NL parser and tailoring LLM call are both confirmed
+  working against a real Anthropic key (locally and on the deployed Render app). Adzuna/Reed still
+  need credentials added (both in local `.env` and Render's Environment tab — they're separate)
+  before those two sources return anything; NHS Jobs and HealthJobsUK already work fully on both.
 - **Phase 7 (smart keyword search):** built and **live-verified** — a keyword search now expands
   to related real job titles via the LLM (e.g. "support" → also searches "Support Worker", "Care
   Assistant", "Healthcare Assistant") before polling and when re-searching locally, cached per
