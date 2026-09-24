@@ -1,8 +1,10 @@
 # Job Search Assistant
 
-Searches NHS Jobs and Trac-powered NHS trust career sites for postings matching a role, stores
-them locally, and (from Phase 2 onward) tailors a CV/cover letter against a chosen posting and can
-autofill the employer's application form via a browser extension.
+Searches NHS Jobs, Adzuna, and Reed (Trac-powered NHS trust career sites planned, blocked on
+recon — see Status) for postings matching a role, stores them locally, and tailors a CV/cover
+letter against a chosen posting. A natural-language search box lets you describe what you want in
+plain English instead of filling separate fields. A browser extension for autofilling employer
+application forms is planned but not yet built.
 
 See `/Users/temitopebakare/.claude/plans/swirling-swinging-newell.md` for the full design/phasing,
 and `docs/SOURCE_NOTES.md` for what's actually been verified against each live site.
@@ -21,7 +23,12 @@ deployed to Render via the included `render.yaml`.
   criteria extraction, prompt building, ATS-compliant docx export all tested and working) —
   **except the actual LLM call**, which needs a real API key in `.env` (not yet supplied). Once a
   key is added, `python main.py tailor` should work as-is.
-- **Phase 3+ (connector-DB↔tailoring API wiring, browser extension):** not started.
+- **Phase 6 (Adzuna + Reed connectors, natural-language search):** built — profile-independent
+  pieces (salary parsing, criteria-extraction reuse, daily rate-cap guard, provider refactor) are
+  tested; the connectors' exact field names and the NL parser's actual LLM call are **not yet
+  verified live** (no Adzuna/Reed/LLM credentials were available while building). First real use
+  is also the real verification step — see docs/SOURCE_NOTES.md.
+- **Browser extension autofill:** not started.
 
 ## Setup
 
@@ -30,12 +37,15 @@ deployed to Render via the included `render.yaml`.
 source venv/bin/activate
 ```
 
-Then:
+Then, as needed:
 1. Add an `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` to `.env` (whichever `LLM_PROVIDER` you set)
-   — never commit real keys; `.env` is gitignored.
-2. Copy `profile.example.yaml` to `data/profile.yaml` and fill in your real CV details. Only put
-   in facts you can back up — the tailoring engine is instructed never to invent anything beyond
-   what's here, so gaps show up as flagged gaps rather than fabrication.
+   — needed for both CV tailoring and natural-language search. Never commit real keys; `.env` is
+   gitignored.
+2. Copy `profile.example.yaml` to `data/profile.yaml` and fill in your real CV details (needed for
+   tailoring). Only put in facts you can back up — the tailoring engine is instructed never to
+   invent anything beyond what's here, so gaps show up as flagged gaps rather than fabrication.
+3. Add `ADZUNA_APP_ID`/`ADZUNA_APP_KEY` (free signup at developer.adzuna.com) and/or
+   `REED_API_KEY` (free signup at reed.co.uk/developers) to search beyond NHS Jobs.
 
 ## Usage (CLI)
 
@@ -49,6 +59,14 @@ Search what's stored locally:
 
 ```bash
 python main.py search "podiatrist"
+python main.py search "podiatrist" --min-salary 40000
+```
+
+Or describe what you want in plain English — this parses your request with the LLM, polls the
+sources it identifies, and searches (needs an LLM key in `.env`):
+
+```bash
+python main.py nlsearch "senior nurse roles in Manchester paying above £35k"
 ```
 
 Tailor a CV + cover letter against a stored job, a pasted job description, or a URL:

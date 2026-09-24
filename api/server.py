@@ -1,20 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 import db
-from connectors.nhs_jobs import NHSJobsConnector
 from models import SearchQuery
+from polling import CONNECTORS, poll_sources
 from search import search_jobs
-
-CONNECTORS = {
-    "nhs_jobs": NHSJobsConnector,
-}
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -32,8 +27,22 @@ def index() -> FileResponse:
 
 
 @app.get("/api/jobs/search")
-def api_search(keyword: str = "", location: str = "", source: str = "", limit: int = 30) -> list[dict]:
-    jobs = search_jobs(keyword=keyword, location=location, source=source, limit=limit)
+def api_search(
+    keyword: str = "",
+    location: str = "",
+    source: str = "",
+    limit: int = 30,
+    min_salary: float | None = None,
+    contract_type: str = "",
+) -> list[dict]:
+    jobs = search_jobs(
+        keyword=keyword,
+        location=location,
+        source=source,
+        limit=limit,
+        min_salary=min_salary,
+        contract_type=contract_type,
+    )
     return [asdict(j) for j in jobs]
 
 
@@ -43,33 +52,43 @@ def api_poll(keyword: str, location: str = "", source: str = "", max_pages: int 
         raise HTTPException(status_code=400, detail="keyword is required")
 
     sources = [source] if source else list(CONNECTORS.keys())
-    now = datetime.now(timezone.utc).isoformat()
     query = SearchQuery(keyword=keyword, location=location)
+    return poll_sources(sources, query, max_pages=max_pages)
 
-    saved = 0
-    errors: list[str] = []
 
-    for source_name in sources:
-        connector_cls = CONNECTORS.get(source_name)
-        if connector_cls is None:
-            errors.append(f"unknown source: {source_name}")
-            continue
+@app.post("/api/jobs/nlsearch")
+def api_nlsearch(text: str, max_pages: int = 1, limit: int = 30) -> dict:
+    import nl_search
 
-        connector = connector_cls()
-        try:
-            refs = list(connector.discover(query, max_pages=max_pages))
-        except Exception as e:
-            errors.append(f"{source_name} discover failed: {e}")
-            continue
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="text is required")
 
-        with db.get_session() as session:
-            for ref in refs:
-                try:
-                    raw = connector.fetch_detail(ref)
-                    job = connector.normalize(raw)
-                    db.upsert_job(session, job, seen_at=now)
-                    saved += 1
-                except Exception as e:
-                    errors.append(f"{ref.url}: {e}")
+    try:
+        parsed = nl_search.parse_query(text)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not parse query: {e}")
 
-    return {"saved": saved, "errors": errors}
+    sources = parsed.sources or list(CONNECTORS.keys())
+    query = SearchQuery(keyword=parsed.keyword, location=parsed.location, min_salary=parsed.min_salary)
+    poll_result = poll_sources(sources, query, max_pages=max_pages)
+
+    jobs = search_jobs(
+        keyword=parsed.keyword,
+        location=parsed.location,
+        min_salary=parsed.min_salary,
+        contract_type=parsed.contract_type,
+        limit=limit,
+    )
+
+    return {
+        "parsed": {
+            "keyword": parsed.keyword,
+            "location": parsed.location,
+            "min_salary": parsed.min_salary,
+            "remote": parsed.remote,
+            "contract_type": parsed.contract_type,
+            "sources": parsed.sources,
+        },
+        "poll": poll_result,
+        "jobs": [asdict(j) for j in jobs],
+    }

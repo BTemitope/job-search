@@ -17,17 +17,19 @@ CRITERIA_SECTION_RE = re.compile(
 BULLET_PREFIX_RE = re.compile(r"^\s*[-•*•]\s*")
 
 
-def from_text(raw_text: str, title: str = "", org_name: str = "", url: str = "") -> NormalizedJob:
-    """Fallback connector for anything not (yet) supported by a dedicated
-    connector: the user pastes a job description directly. No HTML
-    structure to rely on, so criteria extraction is a best-effort line-based
-    heuristic — it degrades to storing the whole text as raw_description_text
-    if nothing resembling a criteria section is found, per the normalize()
-    contract every connector follows.
+def extract_criteria_from_text(raw_text: str) -> tuple[list[Criterion], list[str]]:
+    """Best-effort line-based heuristic: catches "Person Specification" /
+    "Essential"/"Desirable" style sections in plain, unstructured text.
+    Shared by from_text() below (which also needs the leftover
+    non-criteria lines as the description) and by any connector whose
+    source gives back a free-text description that might informally list
+    requirements (e.g. Adzuna/Reed job ads), which only need the criteria
+    half of the return value. Degrades to (empty list, all lines) if
+    nothing resembling a criteria section is found.
     """
     lines = raw_text.splitlines()
     criteria: list[Criterion] = []
-    description_lines: list[str] = []
+    other_lines: list[str] = []
     current_level: str | None = None
     in_criteria_block = False
 
@@ -44,7 +46,7 @@ def from_text(raw_text: str, title: str = "", org_name: str = "", url: str = "")
             continue
 
         if not in_criteria_block:
-            description_lines.append(line)
+            other_lines.append(line)
             continue
 
         if not stripped:
@@ -55,6 +57,18 @@ def from_text(raw_text: str, title: str = "", org_name: str = "", url: str = "")
             essential = (current_level or "Essential") == "Essential"
             criteria.append(Criterion(category="General", text=text, essential=essential))
 
+    return criteria, other_lines
+
+
+def from_text(raw_text: str, title: str = "", org_name: str = "", url: str = "") -> NormalizedJob:
+    """Fallback connector for anything not (yet) supported by a dedicated
+    connector: the user pastes a job description directly. No HTML
+    structure to rely on, so criteria extraction is a best-effort heuristic
+    (extract_criteria_from_text) — it degrades to storing the whole text as
+    raw_description_text if nothing resembling a criteria section is found,
+    per the normalize() contract every connector follows.
+    """
+    criteria, description_lines = extract_criteria_from_text(raw_text)
     source_id = hashlib.sha256((url or raw_text[:200]).encode()).hexdigest()[:16]
 
     return NormalizedJob(

@@ -11,6 +11,14 @@ NHS_JOBS_MIN_INTERVAL_SECONDS = float(os.getenv("NHS_JOBS_MIN_INTERVAL_SECONDS",
 TRAC_MIN_INTERVAL_SECONDS = float(os.getenv("TRAC_MIN_INTERVAL_SECONDS", "5"))
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "14400"))  # default 4h — NHS vacancies stay open for weeks
 
+ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
+ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
+ADZUNA_MIN_INTERVAL_SECONDS = float(os.getenv("ADZUNA_MIN_INTERVAL_SECONDS", "3"))  # 25 req/min free-tier cap
+ADZUNA_DAILY_CAP = int(os.getenv("ADZUNA_DAILY_CAP", "250"))  # free-tier daily cap
+
+REED_API_KEY = os.getenv("REED_API_KEY", "")
+REED_MIN_INTERVAL_SECONDS = float(os.getenv("REED_MIN_INTERVAL_SECONDS", "1"))
+
 DATABASE_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "data/jobs.db")
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic")

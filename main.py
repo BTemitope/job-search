@@ -1,26 +1,27 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 from pathlib import Path
 
 import config
 import db
 from connectors import manual_paste
-from connectors.nhs_jobs import NHSJobsConnector
 from models import SearchQuery
+from polling import CONNECTORS, poll_sources
 from search import search_jobs
 from tailoring import docx_export, llm_client
 from tailoring.profile import ProfileError, load_profile
 
-CONNECTORS = {
-    "nhs_jobs": NHSJobsConnector,
-}
-
 
 def cmd_search(args: argparse.Namespace) -> None:
     db.init_db()
-    results = search_jobs(keyword=args.keyword, location=args.location, source=args.source, limit=args.limit)
+    results = search_jobs(
+        keyword=args.keyword,
+        location=args.location,
+        source=args.source,
+        limit=args.limit,
+        min_salary=args.min_salary,
+    )
     if not results:
         print("No matches in the local database yet. Run `python main.py poll` first to fetch postings.")
         return
@@ -28,6 +29,8 @@ def cmd_search(args: argparse.Namespace) -> None:
         print(f"[{job.source}] {job.title} — {job.org_name}")
         if job.location:
             print(f"    {job.location}")
+        if job.salary_range:
+            print(f"    {job.salary_range}")
         if job.closing_date:
             print(f"    Closes: {job.closing_date}")
         print(f"    {job.url}")
@@ -35,32 +38,56 @@ def cmd_search(args: argparse.Namespace) -> None:
 
 
 def cmd_poll(args: argparse.Namespace) -> None:
-    db.init_db()
-    now = datetime.now(timezone.utc).isoformat()
-
     sources = [args.source] if args.source else list(CONNECTORS.keys())
     query = SearchQuery(keyword=args.keyword, location=args.location)
+    result = poll_sources(sources, query, max_pages=args.max_pages)
 
-    for source_name in sources:
-        connector_cls = CONNECTORS.get(source_name)
-        if connector_cls is None:
-            print(f"[poll] Unknown source: {source_name}")
-            continue
+    for source_name, count in result["counts"].items():
+        print(f"[poll] {source_name}: saved {count} posting(s)")
+    for err in result["errors"]:
+        print(f"[poll] error: {err}")
+    print(f"[poll] total saved: {result['saved']}")
 
-        connector = connector_cls()
-        print(f"[poll] {source_name}: searching for '{args.keyword}'...")
-        refs = list(connector.discover(query, max_pages=args.max_pages))
-        print(f"[poll] {source_name}: found {len(refs)} result(s) on page(s) 1-{args.max_pages}")
 
-        with db.get_session() as session:
-            for ref in refs:
-                try:
-                    raw = connector.fetch_detail(ref)
-                    job = connector.normalize(raw)
-                    db.upsert_job(session, job, seen_at=now)
-                    print(f"[poll]   saved: {job.title} — {job.org_name}")
-                except Exception as e:
-                    print(f"[poll]   failed on {ref.url}: {e}")
+def cmd_nlsearch(args: argparse.Namespace) -> None:
+    import nl_search
+
+    try:
+        parsed = nl_search.parse_query(args.text)
+    except Exception as e:
+        print(f"[nlsearch] Could not parse query: {e}")
+        return
+
+    print(
+        f"[nlsearch] parsed: keyword={parsed.keyword!r} location={parsed.location!r} "
+        f"min_salary={parsed.min_salary} remote={parsed.remote} contract_type={parsed.contract_type!r} "
+        f"sources={parsed.sources or 'all'}"
+    )
+
+    sources = parsed.sources or list(CONNECTORS.keys())
+    query = SearchQuery(keyword=parsed.keyword, location=parsed.location, min_salary=parsed.min_salary)
+    poll_result = poll_sources(sources, query, max_pages=args.max_pages)
+    for err in poll_result["errors"]:
+        print(f"[nlsearch] poll error: {err}")
+
+    results = search_jobs(
+        keyword=parsed.keyword,
+        location=parsed.location,
+        min_salary=parsed.min_salary,
+        contract_type=parsed.contract_type,
+        limit=args.limit,
+    )
+    if not results:
+        print("[nlsearch] No matches.")
+        return
+    for job in results:
+        print(f"[{job.source}] {job.title} — {job.org_name}")
+        if job.location:
+            print(f"    {job.location}")
+        if job.salary_range:
+            print(f"    {job.salary_range}")
+        print(f"    {job.url}")
+        print()
 
 
 def cmd_tailor(args: argparse.Namespace) -> None:
@@ -120,6 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_search.add_argument("--location", default="")
     p_search.add_argument("--source", default="")
     p_search.add_argument("--limit", type=int, default=20)
+    p_search.add_argument("--min-salary", type=float, default=None, dest="min_salary")
     p_search.set_defaults(func=cmd_search)
 
     p_poll = sub.add_parser("poll", help="Fetch postings from connectors into the local database")
@@ -128,6 +156,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_poll.add_argument("--source", default="", help="Limit to one connector (default: all)")
     p_poll.add_argument("--max-pages", type=int, default=1)
     p_poll.set_defaults(func=cmd_poll)
+
+    p_nlsearch = sub.add_parser("nlsearch", help="Describe what you want in plain English; polls matching sources and searches")
+    p_nlsearch.add_argument("text")
+    p_nlsearch.add_argument("--max-pages", type=int, default=1)
+    p_nlsearch.add_argument("--limit", type=int, default=20)
+    p_nlsearch.set_defaults(func=cmd_nlsearch)
 
     p_tailor = sub.add_parser("tailor", help="Generate a tailored CV/cover letter for one job")
     source_group = p_tailor.add_mutually_exclusive_group(required=True)

@@ -23,6 +23,8 @@ def search_jobs(
     source: str = "",
     active_only: bool = True,
     limit: int = 50,
+    min_salary: float | None = None,
+    contract_type: str = "",
 ) -> list[NormalizedJob]:
     with get_session() as session:
         if keyword.strip():
@@ -45,6 +47,14 @@ def search_jobs(
             query = query.filter(JobRecord.location.ilike(f"%{location}%"))
         if source.strip():
             query = query.filter(JobRecord.source == source)
+        if contract_type.strip():
+            query = query.filter(JobRecord.contract_type.ilike(f"%{contract_type}%"))
+        if min_salary is not None:
+            # Excludes jobs with unknown salary (NULL) — an unknown figure
+            # isn't evidence it meets the floor, so it shouldn't match.
+            query = query.filter(JobRecord.salary_min_numeric.isnot(None)).filter(
+                JobRecord.salary_min_numeric >= min_salary
+            )
         if active_only:
             query = query.filter(JobRecord.is_active.is_(True))
 

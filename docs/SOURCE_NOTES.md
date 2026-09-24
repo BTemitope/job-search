@@ -108,6 +108,45 @@ Network while performing a normal search to see whether results come back as a J
 plain HTML — then update this section and proceed with `trac_generic.py` per the connector
 decision procedure in the plan.
 
+## Adzuna (api.adzuna.com)
+
+**Official free API** — no scraping-decision procedure needed, but its terms still shape the
+implementation (checked via its developer docs, 2026-09-24):
+
+- **Rate limits**: 25 req/min, **250 req/day**, 1000/week, 2500/month. `connectors/adzuna.py`
+  enforces the per-minute pacing via the shared `rate_limit.wait_turn()` and additionally guards
+  the daily cap explicitly (`rate_limit.check_daily_cap()`, persisted in
+  `data/rate_limit_counters.json`) — worth being deliberate about since 250/day is easy to exceed
+  with a couple of broad, multi-page polls, and exceeding it risks the key being throttled.
+- **Attribution required**: "Jobs by Adzuna" (linked) wherever listings are displayed — implemented
+  in `api/static/index.html` as a text link per Adzuna-sourced result. The exact logo asset
+  Adzuna's terms describe (116×23px minimum) hasn't been confirmed against the developer portal in
+  this session — worth a quick check there once the account exists, though a clear text link is a
+  reasonable placeholder for personal use meanwhile.
+- **No detail endpoint on the free tier** — search results already contain everything (title,
+  company, location, salary_min/max, a description *snippet*, redirect_url, id, contract_type,
+  contract_time, created). `AdzunaConnector.fetch_detail()` is therefore a cache lookup against
+  what `discover()` already fetched, not a second network call.
+- **Field names are from Adzuna's documentation, not a live test call** (no API key was available
+  while building this) — the first real poll is the actual verification step.
+
+## Reed (www.reed.co.uk/api)
+
+**Official free API.** Auth is HTTP Basic: API key as the username, password left empty.
+
+- **Rate limits**: no daily cap found in Reed's public docs (unlike Adzuna); ~2000 req/hour is
+  documented elsewhere on Reed's platform as a general default. Reed explicitly asks integrators
+  to "avoid polling unnecessarily / avoid run-away usage" — `connectors/reed.py` still goes through
+  the shared per-request pacing, just with a much shorter default interval than Adzuna's.
+- **Search results carry only a short description** — full text needs a second call to
+  `/api/1.0/jobs/{jobId}`, so `ReedConnector.fetch_detail()` is a real network call (unlike
+  Adzuna's cache-lookup approach above).
+- **Field names** (`jobTitle`, `employerName`, `locationName`, `minimumSalary`/`maximumSalary`,
+  `contractType`, `jobDescription` as HTML, `jobUrl`, `jobId`, `date`, `expirationDate`) are from
+  documentation/general knowledge of this well-established API, **not a live test call** — same
+  caveat as Adzuna above; `normalize()` degrades to empty strings/None on any field that turns out
+  to be named differently in practice, rather than raising.
+
 ## Caveat on all of the above
 
 These checks were run from Claude's sandboxed execution environment, not the user's own machine —

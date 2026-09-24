@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 
-from sqlalchemy import Boolean, Column, String, Text, create_engine, event, text
+from sqlalchemy import Boolean, Column, Float, String, Text, create_engine, event, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 import config
 from models import Criterion, NormalizedJob
+from salary import parse_salary_min
 
 Base = declarative_base()
 
@@ -22,6 +23,7 @@ class JobRecord(Base):
     org_name = Column(String, nullable=False)
     location = Column(String, default="")
     salary_range = Column(String, default="")
+    salary_min_numeric = Column(Float, nullable=True)
     contract_type = Column(String, default="")
     working_pattern = Column(String, default="")
     posted_date = Column(String, default="")
@@ -44,6 +46,7 @@ class JobRecord(Base):
             org_name=self.org_name,
             location=self.location or "",
             salary_range=self.salary_range or "",
+            salary_min_numeric=self.salary_min_numeric,
             contract_type=self.contract_type or "",
             working_pattern=self.working_pattern or "",
             posted_date=self.posted_date or "",
@@ -123,6 +126,9 @@ def upsert_job(session, job: NormalizedJob, seen_at: str) -> None:
     record.org_name = job.org_name
     record.location = job.location
     record.salary_range = job.salary_range
+    # Adzuna/Reed give this directly; NHS Jobs doesn't, so fall back to
+    # best-effort regex extraction from the free-text salary_range.
+    record.salary_min_numeric = job.salary_min_numeric if job.salary_min_numeric is not None else parse_salary_min(job.salary_range)
     record.contract_type = job.contract_type
     record.working_pattern = job.working_pattern
     record.posted_date = job.posted_date

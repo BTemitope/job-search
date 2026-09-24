@@ -40,6 +40,7 @@ class NormalizedJob:
     org_name: str
     location: str = ""
     salary_range: str = ""
+    salary_min_numeric: float | None = None
     contract_type: str = ""
     working_pattern: str = ""
     posted_date: str = ""
@@ -63,6 +64,8 @@ class SearchQuery:
     location: str = ""
     source: str = ""
     page: int = 1
+    min_salary: float | None = None
+    contract_type: str = ""
 
 
 @dataclass

@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-import config
+from llm import call_provider
 from models import CriterionResponse, NormalizedJob, TailoredApplication
 from tailoring.profile import Profile
+from tailoring.prompts import SYSTEM_PROMPT, TAILORED_APPLICATION_SCHEMA, build_job_block, build_profile_block
+
+TOOL_NAME = "submit_tailored_application"
 
 
 def tailor(profile: Profile, job: NormalizedJob) -> TailoredApplication:
-    provider = config.LLM_PROVIDER.lower()
+    # Split so the profile block can carry cache_control — it's identical
+    # across every tailoring call in a session, unlike the job block.
+    content = [
+        {"type": "text", "text": build_profile_block(profile.to_prompt_dict()), "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": build_job_block(job)},
+    ]
 
-    if provider == "anthropic":
-        from tailoring.providers import anthropic_provider
-
-        result = anthropic_provider.generate(profile, job)
-    elif provider == "openai":
-        from tailoring.providers import openai_provider
-
-        result = openai_provider.generate(profile, job)
-    else:
-        raise ValueError(f"Unknown LLM_PROVIDER: {config.LLM_PROVIDER!r} (expected 'anthropic' or 'openai')")
+    result = call_provider(SYSTEM_PROMPT, content, TAILORED_APPLICATION_SCHEMA, TOOL_NAME)
 
     return TailoredApplication(
         job_id=job.id,

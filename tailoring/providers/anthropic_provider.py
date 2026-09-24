@@ -3,50 +3,39 @@ from __future__ import annotations
 import anthropic
 
 import config
-from models import NormalizedJob
-from tailoring.profile import Profile
-from tailoring.prompts import SYSTEM_PROMPT, TAILORED_APPLICATION_SCHEMA, build_job_block, build_profile_block
 
-TOOL_NAME = "submit_tailored_application"
+Content = str | list[dict]
 
 
-def generate(profile: Profile, job: NormalizedJob) -> dict:
+def generate(system_prompt: str, content: Content, schema: dict, tool_name: str, max_tokens: int = 4096) -> dict:
+    """Generic structured-output call: force a tool call whose input matches
+    `schema`, and return that input dict. `content` is either a plain string
+    or a list of Anthropic content blocks — pass blocks with `cache_control`
+    on any part that's reused across calls (e.g. tailoring's profile block)
+    to benefit from prompt caching; a plain string skips that.
+    """
     if not config.ANTHROPIC_API_KEY:
         raise RuntimeError("ANTHROPIC_API_KEY is not set in .env")
 
     client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY)
 
-    profile_block = build_profile_block(profile.to_prompt_dict())
-    job_block = build_job_block(job)
-
     response = client.messages.create(
         model=config.ANTHROPIC_MODEL,
-        max_tokens=4096,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    # Cached separately from the job block: the profile is
-                    # identical across every tailoring call in a session,
-                    # the job block is not.
-                    {"type": "text", "text": profile_block, "cache_control": {"type": "ephemeral"}},
-                    {"type": "text", "text": job_block},
-                ],
-            }
-        ],
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": content}],
         tools=[
             {
-                "name": TOOL_NAME,
-                "description": "Submit the structured tailored application.",
-                "input_schema": TAILORED_APPLICATION_SCHEMA,
+                "name": tool_name,
+                "description": f"Submit the structured result for {tool_name}.",
+                "input_schema": schema,
             }
         ],
-        tool_choice={"type": "tool", "name": TOOL_NAME},
+        tool_choice={"type": "tool", "name": tool_name},
     )
 
     for block in response.content:
-        if block.type == "tool_use" and block.name == TOOL_NAME:
+        if block.type == "tool_use" and block.name == tool_name:
             return block.input
 
     raise RuntimeError("Anthropic response did not include the expected tool call")
