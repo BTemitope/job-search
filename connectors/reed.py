@@ -43,39 +43,43 @@ class ReedConnector(BaseConnector):
         )
 
     def discover(self, query: SearchQuery, max_pages: int = 1) -> Iterable[JobRef]:
-        refs: list[JobRef] = []
-        for page in range(max_pages):
-            rate_limit.wait_turn(self.source_name, config.REED_MIN_INTERVAL_SECONDS)
-            params = {
-                "keywords": query.keyword,
-                "resultsToTake": RESULTS_PER_PAGE,
-                "resultsToSkip": page * RESULTS_PER_PAGE,
-            }
-            if query.location:
-                params["locationName"] = query.location
-            if query.min_salary:
-                params["minimumSalary"] = int(query.min_salary)
+        # Reed's limit is loose enough (~2000/hour) to afford querying the
+        # literal keyword plus any LLM-expanded related terms and union the
+        # results — unlike Adzuna, which deliberately stays literal-only.
+        terms = [query.keyword, *query.related_keywords]
 
-            resp = self.client.get(SEARCH_URL, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-            results = data.get("results", [])
-            if not results:
-                break
+        refs_by_id: dict[str, JobRef] = {}
+        for term in terms:
+            for page in range(max_pages):
+                rate_limit.wait_turn(self.source_name, config.REED_MIN_INTERVAL_SECONDS)
+                params = {
+                    "keywords": term,
+                    "resultsToTake": RESULTS_PER_PAGE,
+                    "resultsToSkip": page * RESULTS_PER_PAGE,
+                }
+                if query.location:
+                    params["locationName"] = query.location
+                if query.min_salary:
+                    params["minimumSalary"] = int(query.min_salary)
 
-            for item in results:
-                job_id = str(item.get("jobId", ""))
-                if not job_id:
-                    continue
-                refs.append(
-                    JobRef(
+                resp = self.client.get(SEARCH_URL, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+                results = data.get("results", [])
+                if not results:
+                    break
+
+                for item in results:
+                    job_id = str(item.get("jobId", ""))
+                    if not job_id or job_id in refs_by_id:
+                        continue
+                    refs_by_id[job_id] = JobRef(
                         source=self.source_name,
                         source_id=job_id,
                         url=item.get("jobUrl", ""),
                         title=item.get("jobTitle", ""),
                     )
-                )
-        return refs
+        return list(refs_by_id.values())
 
     def fetch_detail(self, job_ref: JobRef) -> RawPosting:
         rate_limit.wait_turn(self.source_name, config.REED_MIN_INTERVAL_SECONDS)

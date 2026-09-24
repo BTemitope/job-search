@@ -21,6 +21,7 @@ def cmd_search(args: argparse.Namespace) -> None:
         source=args.source,
         limit=args.limit,
         min_salary=args.min_salary,
+        smart=not args.no_smart,
     )
     if not results:
         print("No matches in the local database yet. Run `python main.py poll` first to fetch postings.")
@@ -39,7 +40,16 @@ def cmd_search(args: argparse.Namespace) -> None:
 
 def cmd_poll(args: argparse.Namespace) -> None:
     sources = [args.source] if args.source else list(CONNECTORS.keys())
-    query = SearchQuery(keyword=args.keyword, location=args.location)
+
+    related = []
+    if not args.no_smart:
+        from query_expansion import expand_keyword
+
+        related = expand_keyword(args.keyword)
+        if related:
+            print(f"[poll] also searching related terms: {', '.join(related)}")
+
+    query = SearchQuery(keyword=args.keyword, location=args.location, related_keywords=related)
     result = poll_sources(sources, query, max_pages=args.max_pages)
 
     for source_name, count in result["counts"].items():
@@ -64,8 +74,16 @@ def cmd_nlsearch(args: argparse.Namespace) -> None:
         f"sources={parsed.sources or 'all'}"
     )
 
+    from query_expansion import expand_keyword
+
+    related = expand_keyword(parsed.keyword)
+    if related:
+        print(f"[nlsearch] also searching related terms: {', '.join(related)}")
+
     sources = parsed.sources or list(CONNECTORS.keys())
-    query = SearchQuery(keyword=parsed.keyword, location=parsed.location, min_salary=parsed.min_salary)
+    query = SearchQuery(
+        keyword=parsed.keyword, location=parsed.location, min_salary=parsed.min_salary, related_keywords=related
+    )
     poll_result = poll_sources(sources, query, max_pages=args.max_pages)
     for err in poll_result["errors"]:
         print(f"[nlsearch] poll error: {err}")
@@ -148,6 +166,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_search.add_argument("--source", default="")
     p_search.add_argument("--limit", type=int, default=20)
     p_search.add_argument("--min-salary", type=float, default=None, dest="min_salary")
+    p_search.add_argument(
+        "--no-smart", action="store_true", help="Match the literal keyword only, no related-term expansion"
+    )
     p_search.set_defaults(func=cmd_search)
 
     p_poll = sub.add_parser("poll", help="Fetch postings from connectors into the local database")
@@ -155,6 +176,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_poll.add_argument("--location", default="")
     p_poll.add_argument("--source", default="", help="Limit to one connector (default: all)")
     p_poll.add_argument("--max-pages", type=int, default=1)
+    p_poll.add_argument(
+        "--no-smart", action="store_true", help="Poll the literal keyword only, no related-term expansion"
+    )
     p_poll.set_defaults(func=cmd_poll)
 
     p_nlsearch = sub.add_parser("nlsearch", help="Describe what you want in plain English; polls matching sources and searches")

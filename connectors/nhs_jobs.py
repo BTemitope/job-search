@@ -37,33 +37,39 @@ class NHSJobsConnector(BaseConnector):
         )
 
     def discover(self, query: SearchQuery, max_pages: int = 1) -> Iterable[JobRef]:
-        refs: list[JobRef] = []
-        for page in range(1, max_pages + 1):
-            rate_limit.wait_turn(self.source_name, config.NHS_JOBS_MIN_INTERVAL_SECONDS)
-            params = {"keyword": query.keyword, "page": page}
-            if query.location:
-                params["location"] = query.location
-            resp = self.client.get("/candidate/search/results", params=params)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "lxml")
-            links = soup.select('a[data-test="search-result-job-title"]')
-            if not links:
-                break
-            for a in links:
-                href = a.get("href", "")
-                match = re.search(r"/candidate/jobadvert/([^/?]+)", href)
-                if not match:
-                    continue
-                source_id = match.group(1)
-                refs.append(
-                    JobRef(
+        # Query the literal keyword plus any LLM-expanded related terms (e.g.
+        # "support" -> also "Care Assistant", "Healthcare Assistant") — no
+        # daily cap on this source, so it's cheap to union several searches.
+        terms = [query.keyword, *query.related_keywords]
+
+        refs_by_id: dict[str, JobRef] = {}
+        for term in terms:
+            for page in range(1, max_pages + 1):
+                rate_limit.wait_turn(self.source_name, config.NHS_JOBS_MIN_INTERVAL_SECONDS)
+                params = {"keyword": term, "page": page}
+                if query.location:
+                    params["location"] = query.location
+                resp = self.client.get("/candidate/search/results", params=params)
+                resp.raise_for_status()
+                soup = BeautifulSoup(resp.text, "lxml")
+                links = soup.select('a[data-test="search-result-job-title"]')
+                if not links:
+                    break
+                for a in links:
+                    href = a.get("href", "")
+                    match = re.search(r"/candidate/jobadvert/([^/?]+)", href)
+                    if not match:
+                        continue
+                    source_id = match.group(1)
+                    if source_id in refs_by_id:
+                        continue
+                    refs_by_id[source_id] = JobRef(
                         source=self.source_name,
                         source_id=source_id,
                         url=f"{BASE_URL}/candidate/jobadvert/{source_id}",
                         title=a.get_text(strip=True),
                     )
-                )
-        return refs
+        return list(refs_by_id.values())
 
     def fetch_detail(self, job_ref: JobRef) -> RawPosting:
         rate_limit.wait_turn(self.source_name, config.NHS_JOBS_MIN_INTERVAL_SECONDS)

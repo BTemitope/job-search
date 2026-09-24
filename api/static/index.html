@@ -106,7 +106,9 @@ pollBtn.addEventListener('click', async () => {
     const data = await res.json();
     const errNote = data.errors.length ? ` (${data.errors.length} source error(s) — see console)` : '';
     if (data.errors.length) console.warn('poll errors:', data.errors);
-    statusEl.textContent = `Fetched and saved ${data.saved} posting(s).${errNote}`;
+    const relatedNote = data.related_terms && data.related_terms.length
+      ? ` Also searched: ${data.related_terms.join(', ')}.` : '';
+    statusEl.textContent = `Fetched and saved ${data.saved} posting(s).${relatedNote}${errNote}`;
     await doSearch();
   } finally {
     pollBtn.disabled = false;
@@ -133,7 +135,9 @@ nlForm.addEventListener('submit', async (e) => {
     if (p.location) bits.push('in ' + p.location);
     if (p.min_salary) bits.push('£' + Number(p.min_salary).toLocaleString() + '+');
     if (p.contract_type) bits.push(p.contract_type);
-    statusEl.textContent = `Understood as: ${bits.join(', ')}. ${data.jobs.length} result(s).`;
+    const relatedNote = p.related_terms && p.related_terms.length
+      ? ` Also searched: ${p.related_terms.join(', ')}.` : '';
+    statusEl.textContent = `Understood as: ${bits.join(', ')}. ${data.jobs.length} result(s).${relatedNote}`;
     if (data.poll.errors.length) console.warn('poll errors:', data.poll.errors);
     renderJobs(data.jobs);
   } finally {

@@ -19,6 +19,8 @@ ADZUNA_DAILY_CAP = int(os.getenv("ADZUNA_DAILY_CAP", "250"))  # free-tier daily 
 REED_API_KEY = os.getenv("REED_API_KEY", "")
 REED_MIN_INTERVAL_SECONDS = float(os.getenv("REED_MIN_INTERVAL_SECONDS", "1"))
 
+QUERY_EXPANSION_MAX_TERMS = int(os.getenv("QUERY_EXPANSION_MAX_TERMS", "3"))
+
 DATABASE_PATH = BASE_DIR / os.getenv("DATABASE_PATH", "data/jobs.db")
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic")

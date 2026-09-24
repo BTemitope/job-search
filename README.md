@@ -19,15 +19,22 @@ deployed to Render via the included `render.yaml`.
   on a normal residential/office network with a real browser.
 - **Phase 1 (CLI + web search):** done and verified against the live NHS Jobs site, both via the
   CLI and the FastAPI web UI.
-- **Phase 2 (CV tailoring):** built and verified end-to-end (profile loading, manual-paste
-  criteria extraction, prompt building, ATS-compliant docx export all tested and working) —
-  **except the actual LLM call**, which needs a real API key in `.env` (not yet supplied). Once a
-  key is added, `python main.py tailor` should work as-is.
-- **Phase 6 (Adzuna + Reed connectors, natural-language search):** built — profile-independent
-  pieces (salary parsing, criteria-extraction reuse, daily rate-cap guard, provider refactor) are
-  tested; the connectors' exact field names and the NL parser's actual LLM call are **not yet
-  verified live** (no Adzuna/Reed/LLM credentials were available while building). First real use
-  is also the real verification step — see docs/SOURCE_NOTES.md.
+- **Phase 2 (CV tailoring):** built and **live-verified** against a real Anthropic key — still
+  needs `data/profile.yaml` filled in with real CV details before `python main.py tailor` can be
+  tried end-to-end (see Setup below).
+- **Phase 6 (Adzuna + Reed connectors, natural-language search):** built and **live-verified** —
+  the NL parser and tailoring LLM call both confirmed working against a real Anthropic key
+  (locally and on the deployed Render app). Adzuna/Reed still need credentials added (both in
+  local `.env` and Render's Environment tab — they're separate) before those two sources return
+  anything; NHS Jobs already works fully on both.
+- **Phase 7 (smart keyword search):** built and **live-verified** — a keyword search now expands
+  to related real job titles via the LLM (e.g. "support" → also searches "Support Worker", "Care
+  Assistant", "Healthcare Assistant") before polling and when re-searching locally, cached per
+  keyword so repeat searches don't re-spend LLM cost. Confirmed live: a plain "support" search now
+  surfaces Care Assistant/Healthcare Assistant/Peer Support Worker postings it previously missed.
+  Adzuna deliberately stays literal-only (no expansion) to protect its tight 250/day quota — NHS
+  Jobs and Reed both get the full expansion since their limits are far looser. Use `--no-smart`
+  (CLI) or `smart=false` (API) to fall back to literal-keyword-only matching.
 - **Browser extension autofill:** not started.
 
 ## Setup
@@ -58,8 +65,9 @@ python main.py poll "mental health nurse" --location Manchester --max-pages 2
 Search what's stored locally:
 
 ```bash
-python main.py search "podiatrist"
+python main.py search "support"                    # also matches Care Assistant, Healthcare Assistant, etc.
 python main.py search "podiatrist" --min-salary 40000
+python main.py search "podiatrist" --no-smart       # literal keyword only, no related-term expansion
 ```
 
 Or describe what you want in plain English — this parses your request with the LLM, polls the

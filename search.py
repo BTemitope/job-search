@@ -6,15 +6,24 @@ from db import JobRecord, get_session
 from models import NormalizedJob
 
 
-def _fts_match_expr(keyword: str) -> str:
-    """Build a safe FTS5 MATCH expression: AND of quoted literal terms.
-
-    Quoting each term sidesteps FTS5's special-character syntax (so a stray
-    punctuation mark in a search term can't break the query).
+def _and_block(term: str) -> str:
+    """One term as an FTS5 AND-of-quoted-words block, e.g. "mental health
+    nurse" -> ("mental" AND "health" AND "nurse"). Quoting each word
+    sidesteps FTS5's special-character syntax (so stray punctuation in a
+    search term can't break the query).
     """
-    terms = [t for t in keyword.split() if t]
-    quoted = [f'"{t}"' for t in terms]
-    return " AND ".join(quoted) if quoted else '""'
+    words = [w for w in term.split() if w]
+    quoted = [f'"{w}"' for w in words]
+    return "(" + " AND ".join(quoted) + ")" if quoted else '("")'
+
+
+def _fts_match_expr(terms: list[str]) -> str:
+    """OR together each term's AND-block, so a job matches if it satisfies
+    ANY one of the (possibly several, LLM-expanded) related terms — not just
+    the single literal keyword typed in.
+    """
+    blocks = [_and_block(t) for t in terms if t.strip()]
+    return " OR ".join(blocks) if blocks else '("")'
 
 
 def search_jobs(
@@ -25,10 +34,19 @@ def search_jobs(
     limit: int = 50,
     min_salary: float | None = None,
     contract_type: str = "",
+    smart: bool = True,
 ) -> list[NormalizedJob]:
     with get_session() as session:
         if keyword.strip():
-            match_expr = _fts_match_expr(keyword)
+            terms = [keyword]
+            if smart:
+                # Best-effort — expand_keyword() never raises; on any LLM
+                # issue it just returns [], leaving this literal-keyword-only.
+                from query_expansion import expand_keyword
+
+                terms += expand_keyword(keyword)
+
+            match_expr = _fts_match_expr(terms)
             rows = session.execute(
                 text(
                     "SELECT job_id FROM jobs_fts WHERE jobs_fts MATCH :match "

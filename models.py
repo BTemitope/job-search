@@ -66,6 +66,7 @@ class SearchQuery:
     page: int = 1
     min_salary: float | None = None
     contract_type: str = ""
+    related_keywords: list[str] = field(default_factory=list)
 
 
 @dataclass
