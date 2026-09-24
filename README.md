@@ -64,6 +64,16 @@ deployed to Render via the included `render.yaml`.
   picking an empty HTML element over real content for the description field on ~90% of postings
   (`raw_description_text` was empty) — fixed, which also improves full-text search relevance for
   everything already using that field.
+- **Phase 11 (concurrent source polling — fixing real measured slowness):** built and
+  **live-verified with real timing, before and after**. Diagnosed against the deployed Render app:
+  NHS Jobs took 35s for 10 results (expected — deliberate rate-limiting), HealthJobsUK hung past
+  40s with no response from a cloud IP, and the old sequential poll waited out both, one after
+  another. Fixed: every source now polls concurrently in its own thread
+  (`concurrent.futures.ThreadPoolExecutor` + `as_completed()`), bounded by an overall
+  `SOURCE_POLL_TIMEOUT_SECONDS` (default 60s) so one stuck source can't block the response — it's
+  recorded as a timeout and abandoned instead. Confirmed: polling all four sources together (one
+  genuinely hanging) now returns in exactly 60.0s with NHS Jobs' 10 real results intact, instead of
+  90s+/effectively unbounded before.
 - **Browser extension autofill:** not started.
 
 ## Setup

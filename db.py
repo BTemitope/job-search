@@ -73,7 +73,13 @@ def _get_engine():
     global _engine, _SessionLocal
     if _engine is None:
         config.DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _engine = create_engine(f"sqlite:///{config.DATABASE_PATH}", future=True)
+        # check_same_thread=False: polling.py now runs each source's poll in
+        # its own thread (concurrently). Each thread opens its own session/
+        # connection via get_session() below — never shares one across
+        # threads — so this only lifts sqlite3's overly strict default
+        # rejection of that, not an actual concurrency risk; SQLite still
+        # serializes real writes at the file level.
+        _engine = create_engine(f"sqlite:///{config.DATABASE_PATH}", future=True, connect_args={"check_same_thread": False})
 
         @event.listens_for(_engine, "connect")
         def _set_sqlite_pragma(dbapi_connection, _):

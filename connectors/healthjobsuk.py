@@ -45,7 +45,7 @@ class HealthJobsUKConnector(BaseConnector):
         self.client = httpx.Client(
             base_url=BASE_URL,
             headers={"User-Agent": config.USER_AGENT},
-            timeout=20.0,
+            timeout=config.HEALTHJOBSUK_TIMEOUT_SECONDS,
             follow_redirects=True,
         )
 

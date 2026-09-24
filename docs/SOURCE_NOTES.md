@@ -53,6 +53,43 @@ specific page didn't state it explicitly when checked — the register is clearl
 public reuse (that's its entire purpose), and this project only reads/caches it locally for a
 personal tool, never republishes or resells it.
 
+## Poll performance — concurrent sources, not a job connector
+
+The user reported the deployed app "taking too long to load." Diagnosed with real timing against
+the live Render deployment (2026-09-24), not guessed:
+
+- Page load itself: 1.3–1.6s. Not the problem.
+- `POST /api/jobs/poll?source=nhs_jobs`: **35s for 10 results** — expected and by design, since
+  each result's detail page needs its own rate-limited request (3s pacing, a deliberate
+  conservative-scraping choice, not weakened here).
+- `POST /api/jobs/poll?source=healthjobsuk`: **hung past 40s with no response at all** (curl gave
+  up). Same root cause as this file's HealthJobsUK section below — Trac/Civica's infrastructure
+  appears to block/badly-rate-limit datacenter IPs, and Render is also a cloud host.
+- `source=adzuna` / `source=reed`: under 2s each (fail fast on missing credentials).
+
+The default "poll all sources" button ran these **sequentially** — so a real click waited out NHS
+Jobs' ~35s *and then* HealthJobsUK's hang stacked on top, compounding into minutes. Fixed in
+`polling.py`: each source now runs in its own thread (`ThreadPoolExecutor`), collected via
+`concurrent.futures.as_completed()` with an overall `config.SOURCE_POLL_TIMEOUT_SECONDS` (default
+60s) bound — total wait becomes roughly the slowest source, not the sum of all of them, and a
+source that exceeds the bound is recorded as a timeout error and abandoned (its thread finishes
+independently in the background; any rows it manages to write still land harmlessly) rather than
+blocking the response. `connectors/healthjobsuk.py`'s own `httpx.Client` timeout was also lowered
+(`config.HEALTHJOBSUK_TIMEOUT_SECONDS`, default 10s, from a hardcoded 20s) so a blocked request
+fails on its own well before the poll-level backstop would even need to fire.
+
+**A subtlety caught during implementation, not before**: the first version of this fix iterated
+`futures.items()` (insertion order) and called `future.result(timeout=...)` on each one — which
+still waits on each future *in that order* regardless of which thread actually finishes first,
+silently re-serializing the wait even though the underlying work runs in parallel. Fixed to use
+`concurrent.futures.as_completed()`, which yields whichever future finishes next. Caught by
+re-testing after the first version still hung past 90s in exactly the pattern it was meant to fix.
+
+**Also required**: `db.py`'s SQLite engine needed `connect_args={"check_same_thread": False}` —
+each source's thread opens its own session via the existing `get_session()` pattern (never shares
+one across threads), so this only lifts sqlite3's overly strict default rejection of that; SQLite
+still serializes actual writes at the file level, no corruption risk.
+
 ## NHS Jobs (www.jobs.nhs.uk)
 
 **Checked:** 2026-09-24, from a sandboxed cloud dev environment (see caveat at the bottom).

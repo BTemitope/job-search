@@ -313,7 +313,7 @@ pollBtn.addEventListener('click', async () => {
   const location = document.getElementById('location').value.trim();
   if (!keyword) { setStatus('Enter a job role first.'); return; }
   pollBtn.disabled = true;
-  setStatus('Fetching from live sources — this can take a few seconds...', true);
+  setStatus('Fetching from live sources — this can take up to a minute — each source is rate-limited to stay respectful of the sites it searches...', true);
   const params = new URLSearchParams({ keyword, location, max_pages: '1' });
   try {
     const res = await fetch('/api/jobs/poll?' + params.toString(), { method: 'POST' });
@@ -334,7 +334,7 @@ nlForm.addEventListener('submit', async (e) => {
   const text = document.getElementById('nl-text').value.trim();
   if (!text) return;
   nlBtn.disabled = true;
-  setStatus('Understanding your request and fetching matching jobs — this can take a few seconds...', true);
+  setStatus('Understanding your request and fetching matching jobs — this can take up to a minute — each source is rate-limited to stay respectful of the sites it searches...', true);
   try {
     const sponsorsOnly = document.getElementById('sponsors-only').checked;
     const params = new URLSearchParams({ text, max_pages: '1', limit: '30', sponsors_only: sponsorsOnly });

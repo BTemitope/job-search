@@ -11,6 +11,17 @@ NHS_JOBS_MIN_INTERVAL_SECONDS = float(os.getenv("NHS_JOBS_MIN_INTERVAL_SECONDS",
 TRAC_MIN_INTERVAL_SECONDS = float(os.getenv("TRAC_MIN_INTERVAL_SECONDS", "5"))
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "14400"))  # default 4h — NHS vacancies stay open for weeks
 
+# HealthJobsUK's detail pages (not its search) have been observed to hang
+# rather than fail fast when accessed from cloud/datacenter IPs (see
+# docs/SOURCE_NOTES.md) — a short client-side timeout so a blocked request
+# fails on its own instead of relying solely on the poll-level backstop below.
+HEALTHJOBSUK_TIMEOUT_SECONDS = float(os.getenv("HEALTHJOBSUK_TIMEOUT_SECONDS", "10"))
+
+# Backstop for polling all sources concurrently (see polling.py): the
+# longest any single source is allowed to block the overall response
+# before being recorded as a timeout error and abandoned in the background.
+SOURCE_POLL_TIMEOUT_SECONDS = float(os.getenv("SOURCE_POLL_TIMEOUT_SECONDS", "60"))
+
 ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
 ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
 ADZUNA_MIN_INTERVAL_SECONDS = float(os.getenv("ADZUNA_MIN_INTERVAL_SECONDS", "3"))  # 25 req/min free-tier cap
