@@ -4,53 +4,226 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Job Search Assistant</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='10' cy='10' r='6.5' fill='none' stroke='%232f6fed' stroke-width='2.2'/%3E%3Cline x1='15' y1='15' x2='21' y2='21' stroke='%232f6fed' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
-  :root { color-scheme: light dark; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; max-width: 780px; margin: 2rem auto; padding: 0 1rem; line-height: 1.4; }
-  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
-  h2.section { font-size: 1rem; margin: 1.5rem 0 0.5rem; }
-  p.sub { color: #666; margin-top: 0; margin-bottom: 1rem; }
-  form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
-  input[type=text] { flex: 1 1 200px; padding: 0.5rem; font-size: 1rem; }
-  button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
-  hr { border: none; border-top: 1px solid #ccc; margin: 1.5rem 0; }
-  #status { min-height: 1.2rem; color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
-  .job { border: 1px solid #ccc; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
-  .job h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
-  .job .meta { color: #666; font-size: 0.9rem; margin-bottom: 0.25rem; }
-  .job .source-badge { display: inline-block; font-size: 0.75rem; color: #666; border: 1px solid #999; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
-  .job .sponsor-badge { display: inline-block; font-size: 0.75rem; color: #1a7a3c; border: 1px solid #1a7a3c; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
-  .job .role-sponsor-yes { display: inline-block; font-size: 0.75rem; color: #1a7a3c; border: 1px solid #1a7a3c; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
-  .job .role-sponsor-no { display: inline-block; font-size: 0.75rem; color: #a04a00; border: 1px solid #a04a00; border-radius: 4px; padding: 0 0.4rem; margin-left: 0.4rem; }
-  .job a { font-size: 0.9rem; }
-  .job .attribution { font-size: 0.75rem; margin-top: 0.4rem; }
-  .empty { color: #666; }
-  label.checkbox { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; color: #666; margin: 0 0 0.75rem; }
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f6f8;
+    --surface: #ffffff;
+    --surface-alt: #f0f2f5;
+    --border: #e1e4e9;
+    --text: #15181e;
+    --text-muted: #626a76;
+    --accent: #2f6fed;
+    --accent-hover: #2558c4;
+    --accent-contrast: #ffffff;
+    --success: #1a7a3c;
+    --success-bg: #e6f4ea;
+    --success-border: #bfe4cb;
+    --warning: #a04a00;
+    --warning-bg: #fdf0e3;
+    --warning-border: #f0d3ae;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(20, 24, 31, 0.04), 0 2px 12px rgba(20, 24, 31, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1116;
+      --surface: #171b22;
+      --surface-alt: #1e232b;
+      --border: #2a2f38;
+      --text: #e8eaed;
+      --text-muted: #9aa3af;
+      --accent: #6f9bff;
+      --accent-hover: #8fb0ff;
+      --accent-contrast: #0e1116;
+      --success: #57d98c;
+      --success-bg: rgba(87, 217, 140, 0.12);
+      --success-border: rgba(87, 217, 140, 0.3);
+      --warning: #f2a154;
+      --warning-bg: rgba(242, 161, 84, 0.12);
+      --warning-border: rgba(242, 161, 84, 0.3);
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .topbar {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .topbar-inner {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .brand-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-contrast);
+    display: flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .brand-name { font-weight: 650; font-size: 1.05rem; letter-spacing: -0.01em; }
+
+  main { max-width: 760px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; }
+
+  .hero { margin-bottom: 1.5rem; }
+  .hero h1 { font-size: 1.5rem; margin: 0 0 0.3rem; letter-spacing: -0.02em; }
+  .hero p { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+
+  .search-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .tabs { display: flex; gap: 0.25rem; margin-bottom: 1rem; background: var(--surface-alt); padding: 0.25rem; border-radius: 8px; width: fit-content; }
+  .tab {
+    border: none; background: transparent; color: var(--text-muted);
+    font-size: 0.85rem; font-weight: 600; padding: 0.4rem 0.75rem; border-radius: 6px; cursor: pointer;
+  }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20,24,31,0.08); }
+  .tab-panel.hidden { display: none; }
+
+  form { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  input[type=text] {
+    flex: 1 1 200px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type=text]::placeholder { color: var(--text-muted); }
+
+  button { font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; border-radius: 8px; padding: 0.6rem 1rem; border: 1px solid transparent; transition: background 0.15s ease, opacity 0.15s ease; }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .btn-primary { background: var(--accent); color: var(--accent-contrast); }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-alt); }
+
+  label.checkbox {
+    display: flex; align-items: center; gap: 0.45rem;
+    font-size: 0.85rem; color: var(--text-muted);
+    margin-top: 0.85rem; padding-top: 0.85rem; border-top: 1px solid var(--border);
+  }
+  label.checkbox input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+  #status {
+    min-height: 1.3rem; color: var(--text-muted); font-size: 0.85rem;
+    margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
+  }
+  #status.loading::before {
+    content: ""; width: 13px; height: 13px; border-radius: 50%;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    animation: spin 0.7s linear infinite; flex: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .results { display: flex; flex-direction: column; gap: 0.75rem; }
+  .job {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    box-shadow: var(--shadow);
+  }
+  .job-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.45rem; margin-bottom: 0.35rem; }
+  .job h3 { margin: 0; font-size: 1.02rem; font-weight: 650; letter-spacing: -0.01em; }
+  .job .meta { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 0.15rem; }
+  .job .meta.salary { color: var(--text); font-weight: 550; }
+
+  .badge {
+    display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 650;
+    border-radius: 999px; padding: 0.15rem 0.55rem; line-height: 1.5; white-space: nowrap;
+  }
+  .badge-source { background: var(--surface-alt); color: var(--text-muted); }
+  .badge-sponsor-yes { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+  .badge-sponsor-no { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
+
+  .job-actions { margin-top: 0.65rem; display: flex; align-items: center; gap: 0.75rem; }
+  .job-actions a.btn-primary { text-decoration: none; font-size: 0.85rem; padding: 0.45rem 0.85rem; display: inline-block; }
+  .attribution { font-size: 0.72rem; color: var(--text-muted); }
+  .attribution a { color: inherit; }
+
+  .empty {
+    color: var(--text-muted); text-align: center; padding: 2.5rem 1rem;
+    border: 1px dashed var(--border); border-radius: var(--radius); font-size: 0.9rem;
+  }
+
+  footer { max-width: 760px; margin: 0 auto; padding: 0 1.25rem 2rem; color: var(--text-muted); font-size: 0.78rem; }
+
+  @media (max-width: 480px) {
+    .search-card { padding: 0.9rem; }
+    form { flex-direction: column; }
+    form button { width: 100%; }
+  }
 </style>
 </head>
 <body>
-  <h1>Job Search Assistant</h1>
-  <p class="sub">Searches NHS Jobs, Adzuna, and Reed. "Fetch new" pulls fresh postings from live sources; "Search" queries what's already stored.</p>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="10" cy="10" r="6.5" stroke="currentColor" stroke-width="2.2"/><line x1="15" y1="15" x2="21" y2="21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="brand-name">Job Search Assistant</span>
+    </div>
+  </div>
 
-  <h2 class="section">Describe what you want</h2>
-  <form id="nl-form">
-    <input type="text" id="nl-text" placeholder="e.g. senior nurse roles in Manchester paying above £35k" required>
-    <button type="submit" id="nl-btn">Find jobs</button>
-  </form>
+  <main>
+    <div class="hero">
+      <h1>Find your next role</h1>
+      <p>Searches NHS Jobs, HealthJobsUK, Adzuna, and Reed in one place.</p>
+    </div>
 
-  <hr>
+    <div class="search-card">
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab active" id="tab-btn-ai" role="tab" aria-selected="true">Describe what you want</button>
+        <button type="button" class="tab" id="tab-btn-manual" role="tab" aria-selected="false">Search by field</button>
+      </div>
 
-  <h2 class="section">Or search by field</h2>
-  <form id="search-form">
-    <input type="text" id="keyword" placeholder="Job role, e.g. mental health nurse" required>
-    <input type="text" id="location" placeholder="Location (optional)">
-    <button type="submit" id="search-btn">Search</button>
-    <button type="button" id="poll-btn">Fetch new from live sites</button>
-  </form>
-  <label class="checkbox"><input type="checkbox" id="sponsors-only"> Only show employers registered as UK visa sponsors</label>
+      <div class="tab-panel" id="tab-ai">
+        <form id="nl-form">
+          <input type="text" id="nl-text" placeholder="e.g. senior nurse roles in Manchester paying above £35k" required>
+          <button type="submit" id="nl-btn" class="btn-primary">Find jobs</button>
+        </form>
+      </div>
 
-  <div id="status"></div>
-  <div id="results"></div>
+      <div class="tab-panel hidden" id="tab-manual">
+        <form id="search-form">
+          <input type="text" id="keyword" placeholder="Job role, e.g. mental health nurse" required>
+          <input type="text" id="location" placeholder="Location (optional)">
+          <button type="submit" id="search-btn" class="btn-primary">Search</button>
+          <button type="button" id="poll-btn" class="btn-secondary">Fetch new from live sites</button>
+        </form>
+      </div>
+
+      <label class="checkbox"><input type="checkbox" id="sponsors-only"> Only show employers registered as UK visa sponsors</label>
+    </div>
+
+    <div id="status"></div>
+    <div id="results"></div>
+  </main>
+
+  <footer>Data pulled live from each source's own public listings. Not affiliated with NHS Jobs, HealthJobsUK, Adzuna, or Reed.</footer>
 
 <script>
 const nlForm = document.getElementById('nl-form');
@@ -60,28 +233,57 @@ const statusEl = document.getElementById('status');
 const resultsEl = document.getElementById('results');
 const pollBtn = document.getElementById('poll-btn');
 
-const SOURCE_LABELS = { nhs_jobs: 'NHS Jobs', adzuna: 'Adzuna', reed: 'Reed', manual: 'Pasted' };
+const tabBtnAi = document.getElementById('tab-btn-ai');
+const tabBtnManual = document.getElementById('tab-btn-manual');
+const tabAi = document.getElementById('tab-ai');
+const tabManual = document.getElementById('tab-manual');
+
+function showTab(which) {
+  const aiActive = which === 'ai';
+  tabAi.classList.toggle('hidden', !aiActive);
+  tabManual.classList.toggle('hidden', aiActive);
+  tabBtnAi.classList.toggle('active', aiActive);
+  tabBtnManual.classList.toggle('active', !aiActive);
+  tabBtnAi.setAttribute('aria-selected', String(aiActive));
+  tabBtnManual.setAttribute('aria-selected', String(!aiActive));
+}
+tabBtnAi.addEventListener('click', () => showTab('ai'));
+tabBtnManual.addEventListener('click', () => showTab('manual'));
+
+function setStatus(text, loading = false) {
+  statusEl.textContent = text;
+  statusEl.classList.toggle('loading', loading);
+}
+
+const SOURCE_LABELS = { nhs_jobs: 'NHS Jobs', healthjobsuk: 'HealthJobsUK', adzuna: 'Adzuna', reed: 'Reed', manual: 'Pasted' };
 
 function roleSponsorBadge(status) {
-  if (status === 'no_sponsorship') return '<span class="role-sponsor-no">⚠ role states: no sponsorship</span>';
-  if (status === 'sponsorship_available') return '<span class="role-sponsor-yes">✓ role states: sponsorship available</span>';
+  if (status === 'no_sponsorship') return '<span class="badge badge-sponsor-no">⚠ role: no sponsorship</span>';
+  if (status === 'sponsorship_available') return '<span class="badge badge-sponsor-yes">✓ role: sponsorship available</span>';
   return '';
 }
 
 function renderJobs(jobs) {
   if (!jobs.length) {
-    resultsEl.innerHTML = '<p class="empty">No matches yet.</p>';
+    resultsEl.innerHTML = '<div class="empty">No matches yet — try "Fetch new from live sites" or broaden your search.</div>';
     return;
   }
   resultsEl.innerHTML = jobs.map(j => `
-    <div class="job">
-      <h3>${escapeHtml(j.title)}<span class="source-badge">${escapeHtml(SOURCE_LABELS[j.source] || j.source)}</span>${j.visa_sponsor_likely ? '<span class="sponsor-badge">✓ registered visa sponsor</span>' : ''}${roleSponsorBadge(j.role_sponsorship_status)}</h3>
+    <article class="job">
+      <div class="job-head">
+        <h3>${escapeHtml(j.title)}</h3>
+        <span class="badge badge-source">${escapeHtml(SOURCE_LABELS[j.source] || j.source)}</span>
+        ${j.visa_sponsor_likely ? '<span class="badge badge-sponsor-yes">✓ registered visa sponsor</span>' : ''}
+        ${roleSponsorBadge(j.role_sponsorship_status)}
+      </div>
       <div class="meta">${escapeHtml(j.org_name)}${j.location ? ' — ' + escapeHtml(j.location) : ''}</div>
-      ${j.salary_range ? `<div class="meta">${escapeHtml(j.salary_range)}</div>` : ''}
+      ${j.salary_range ? `<div class="meta salary">${escapeHtml(j.salary_range)}</div>` : ''}
       ${j.closing_date ? `<div class="meta">Closes: ${escapeHtml(j.closing_date)}</div>` : ''}
-      <a href="${j.url}" target="_blank" rel="noopener">View / apply</a>
-      ${j.source === 'adzuna' ? '<div class="attribution">Jobs by <a href="https://www.adzuna.co.uk" target="_blank" rel="noopener">Adzuna</a></div>' : ''}
-    </div>
+      <div class="job-actions">
+        <a class="btn-primary" href="${j.url}" target="_blank" rel="noopener">View &amp; apply →</a>
+        ${j.source === 'adzuna' ? '<span class="attribution">Jobs by <a href="https://www.adzuna.co.uk" target="_blank" rel="noopener">Adzuna</a></span>' : ''}
+      </div>
+    </article>
   `).join('');
 }
 
@@ -93,11 +295,11 @@ async function doSearch() {
   const keyword = document.getElementById('keyword').value.trim();
   const location = document.getElementById('location').value.trim();
   const sponsorsOnly = document.getElementById('sponsors-only').checked;
-  statusEl.textContent = 'Searching...';
+  setStatus('Searching...', true);
   const params = new URLSearchParams({ keyword, location, limit: '30', sponsors_only: sponsorsOnly });
   const res = await fetch('/api/jobs/search?' + params.toString());
   const jobs = await res.json();
-  statusEl.textContent = `${jobs.length} result(s) from the local database.`;
+  setStatus(`${jobs.length} result(s) from the local database.`);
   renderJobs(jobs);
 }
 
@@ -109,9 +311,9 @@ form.addEventListener('submit', async (e) => {
 pollBtn.addEventListener('click', async () => {
   const keyword = document.getElementById('keyword').value.trim();
   const location = document.getElementById('location').value.trim();
-  if (!keyword) { statusEl.textContent = 'Enter a job role first.'; return; }
+  if (!keyword) { setStatus('Enter a job role first.'); return; }
   pollBtn.disabled = true;
-  statusEl.textContent = 'Fetching from live sources — this can take a few seconds...';
+  setStatus('Fetching from live sources — this can take a few seconds...', true);
   const params = new URLSearchParams({ keyword, location, max_pages: '1' });
   try {
     const res = await fetch('/api/jobs/poll?' + params.toString(), { method: 'POST' });
@@ -120,7 +322,7 @@ pollBtn.addEventListener('click', async () => {
     if (data.errors.length) console.warn('poll errors:', data.errors);
     const relatedNote = data.related_terms && data.related_terms.length
       ? ` Also searched: ${data.related_terms.join(', ')}.` : '';
-    statusEl.textContent = `Fetched and saved ${data.saved} posting(s).${relatedNote}${errNote}`;
+    setStatus(`Fetched and saved ${data.saved} posting(s).${relatedNote}${errNote}`);
     await doSearch();
   } finally {
     pollBtn.disabled = false;
@@ -132,14 +334,14 @@ nlForm.addEventListener('submit', async (e) => {
   const text = document.getElementById('nl-text').value.trim();
   if (!text) return;
   nlBtn.disabled = true;
-  statusEl.textContent = 'Understanding your request and fetching matching jobs — this can take a few seconds...';
+  setStatus('Understanding your request and fetching matching jobs — this can take a few seconds...', true);
   try {
     const sponsorsOnly = document.getElementById('sponsors-only').checked;
     const params = new URLSearchParams({ text, max_pages: '1', limit: '30', sponsors_only: sponsorsOnly });
     const res = await fetch('/api/jobs/nlsearch?' + params.toString(), { method: 'POST' });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      statusEl.textContent = `Could not process that request${err.detail ? ': ' + err.detail : ''}.`;
+      setStatus(`Could not process that request${err.detail ? ': ' + err.detail : ''}.`);
       return;
     }
     const data = await res.json();
@@ -150,7 +352,7 @@ nlForm.addEventListener('submit', async (e) => {
     if (p.contract_type) bits.push(p.contract_type);
     const relatedNote = p.related_terms && p.related_terms.length
       ? ` Also searched: ${p.related_terms.join(', ')}.` : '';
-    statusEl.textContent = `Understood as: ${bits.join(', ')}. ${data.jobs.length} result(s).${relatedNote}`;
+    setStatus(`Understood as: ${bits.join(', ')}. ${data.jobs.length} result(s).${relatedNote}`);
     if (data.poll.errors.length) console.warn('poll errors:', data.poll.errors);
     renderJobs(data.jobs);
   } finally {
