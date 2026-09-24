@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Search Assistant</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; max-width: 780px; margin: 2rem auto; padding: 0 1rem; line-height: 1.4; }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.sub { color: #666; margin-top: 0; margin-bottom: 1.5rem; }
+  form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+  input[type=text] { flex: 1 1 200px; padding: 0.5rem; font-size: 1rem; }
+  button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+  #status { min-height: 1.2rem; color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+  .job { border: 1px solid #ccc; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
+  .job h3 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+  .job .meta { color: #666; font-size: 0.9rem; margin-bottom: 0.25rem; }
+  .job a { font-size: 0.9rem; }
+  .empty { color: #666; }
+</style>
+</head>
+<body>
+  <h1>Job Search Assistant</h1>
+  <p class="sub">Searches NHS Jobs. "Fetch new" pulls fresh postings from the live site; "Search" queries what's already stored.</p>
+
+  <form id="search-form">
+    <input type="text" id="keyword" placeholder="Job role, e.g. mental health nurse" required>
+    <input type="text" id="location" placeholder="Location (optional)">
+    <button type="submit" id="search-btn">Search</button>
+    <button type="button" id="poll-btn">Fetch new from live site</button>
+  </form>
+
+  <div id="status"></div>
+  <div id="results"></div>
+
+<script>
+const form = document.getElementById('search-form');
+const statusEl = document.getElementById('status');
+const resultsEl = document.getElementById('results');
+const pollBtn = document.getElementById('poll-btn');
+
+function renderJobs(jobs) {
+  if (!jobs.length) {
+    resultsEl.innerHTML = '<p class="empty">No matches yet.</p>';
+    return;
+  }
+  resultsEl.innerHTML = jobs.map(j => `
+    <div class="job">
+      <h3>${escapeHtml(j.title)}</h3>
+      <div class="meta">${escapeHtml(j.org_name)}${j.location ? ' — ' + escapeHtml(j.location) : ''}</div>
+      <div class="meta">${j.closing_date ? 'Closes: ' + escapeHtml(j.closing_date) : ''}</div>
+      <a href="${j.url}" target="_blank" rel="noopener">View / apply on NHS Jobs</a>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function doSearch() {
+  const keyword = document.getElementById('keyword').value.trim();
+  const location = document.getElementById('location').value.trim();
+  statusEl.textContent = 'Searching...';
+  const params = new URLSearchParams({ keyword, location, limit: '30' });
+  const res = await fetch('/api/jobs/search?' + params.toString());
+  const jobs = await res.json();
+  statusEl.textContent = `${jobs.length} result(s) from the local database.`;
+  renderJobs(jobs);
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await doSearch();
+});
+
+pollBtn.addEventListener('click', async () => {
+  const keyword = document.getElementById('keyword').value.trim();
+  const location = document.getElementById('location').value.trim();
+  if (!keyword) { statusEl.textContent = 'Enter a job role first.'; return; }
+  pollBtn.disabled = true;
+  statusEl.textContent = 'Fetching from the live site — this can take a few seconds...';
+  const params = new URLSearchParams({ keyword, location, max_pages: '1' });
+  try {
+    const res = await fetch('/api/jobs/poll?' + params.toString(), { method: 'POST' });
+    const data = await res.json();
+    statusEl.textContent = `Fetched and saved ${data.saved} posting(s).` + (data.errors.length ? ` (${data.errors.length} error(s))` : '');
+    await doSearch();
+  } finally {
+    pollBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
