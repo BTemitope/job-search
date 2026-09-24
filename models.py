@@ -41,6 +41,7 @@ class NormalizedJob:
     location: str = ""
     salary_range: str = ""
     salary_min_numeric: float | None = None
+    visa_sponsor_likely: bool | None = None
     contract_type: str = ""
     working_pattern: str = ""
     posted_date: str = ""

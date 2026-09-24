@@ -4,6 +4,36 @@ Per-source recon: robots.txt/ToS findings and the captured request shape, follow
 decision procedure in the project plan. Update this file whenever a source's behaviour is
 re-verified or changes.
 
+## UK visa sponsor register (gov.uk) — cross-source enrichment, not a job connector
+
+Not a job source — a separate signal joined onto every job from every connector, keyed on
+`org_name`. The Home Office publishes a free, open, no-auth **Register of Licensed Sponsors
+(Workers)**: `gov.uk/government/publications/register-of-licensed-sponsors-workers`, a downloadable
+CSV of ~143,000 organisations licensed to sponsor Skilled Worker visas. Checked and downloaded live
+2026-09-24: columns `Organisation Name, Town/City, County, Type & Rating, Route`, 10.4MB. The CSV's
+own asset URL is dated/hashed and changes with every update, so `visa_sponsor.py` scrapes the
+current link off the publication page rather than hardcoding it.
+
+**Confirmed via real matching against employers already in this project's data:**
+- `"Manchester University NHS Foundation Trust"` and `"Elysium Healthcare"` — direct matches.
+- `"East of England Community Health and Care NHS Trust (Cambridgeshire)"` — **no match** under
+  that name. Found instead under `"Cambridgeshire Community Services NHS Trust"` — apparently a
+  former legal name the register hasn't caught up with after a rebrand. This is the concrete case
+  behind `is_licensed_sponsor()`'s core design rule: it returns `bool | None`, **never `False`** —
+  a non-match is not proof of "not a sponsor," since a genuine legal rename like this one can't be
+  bridged by any reasonable fuzzy-matching. UI/CLI must never render `None` as a negative claim.
+
+**Deferred**: per-role sponsorship text detection (scanning ad text for "we cannot sponsor this
+role" type statements) was considered and explicitly not built for v1 — a real sample already in
+hand (the HealthJobsUK detail page above) contains boilerplate disclaimer text ("we are unable to
+offer sponsorship for some job roles...") that looks like a standard NHS/Trac ad template insert,
+not a per-role statement. A naive keyword heuristic would false-positive on this constantly.
+
+**Licensing**: gov.uk publications are conventionally Open Government Licence v3.0, though this
+specific page didn't state it explicitly when checked — the register is clearly intended for
+public reuse (that's its entire purpose), and this project only reads/caches it locally for a
+personal tool, never republishes or resells it.
+
 ## NHS Jobs (www.jobs.nhs.uk)
 
 **Checked:** 2026-09-24, from a sandboxed cloud dev environment (see caveat at the bottom).

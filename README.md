@@ -43,6 +43,15 @@ deployed to Render via the included `render.yaml`.
   Adzuna deliberately stays literal-only (no expansion) to protect its tight 250/day quota — NHS
   Jobs and Reed both get the full expansion since their limits are far looser. Use `--no-smart`
   (CLI) or `smart=false` (API) to fall back to literal-keyword-only matching.
+- **Phase 9 (visa sponsorship signal):** built and **live-verified** — every job, from every
+  source, is checked against the UK Home Office's public register of licensed visa sponsors
+  (~143k employers, cached locally, refreshed weekly) and flagged with a "✓ registered visa
+  sponsor" badge when the employer matches. Confirmed live against real postings (multiple genuine
+  NHS Foundation Trusts matched correctly). Deliberately never claims an employer is *not* a
+  sponsor — a real rename case was found during testing (an employer registered under its former
+  legal name) proving that "no match" isn't reliable evidence either way, so unmatched employers
+  just show no badge rather than a false negative. Filter with `--sponsors-only` (CLI) or the
+  "Only show employers registered as UK visa sponsors" checkbox (web).
 - **Browser extension autofill:** not started.
 
 ## Setup
@@ -76,6 +85,7 @@ Search what's stored locally:
 python main.py search "support"                    # also matches Care Assistant, Healthcare Assistant, etc.
 python main.py search "podiatrist" --min-salary 40000
 python main.py search "podiatrist" --no-smart       # literal keyword only, no related-term expansion
+python main.py search "podiatrist" --sponsors-only  # only employers found in the UK licensed visa sponsor register
 ```
 
 Or describe what you want in plain English — this parses your request with the LLM, polls the

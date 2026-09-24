@@ -35,6 +35,7 @@ def search_jobs(
     min_salary: float | None = None,
     contract_type: str = "",
     smart: bool = True,
+    sponsors_only: bool = False,
 ) -> list[NormalizedJob]:
     with get_session() as session:
         if keyword.strip():
@@ -73,6 +74,8 @@ def search_jobs(
             query = query.filter(JobRecord.salary_min_numeric.isnot(None)).filter(
                 JobRecord.salary_min_numeric >= min_salary
             )
+        if sponsors_only:
+            query = query.filter(JobRecord.visa_sponsor_likely.is_(True))
         if active_only:
             query = query.filter(JobRecord.is_active.is_(True))
 

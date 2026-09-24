@@ -35,6 +35,7 @@ def api_search(
     min_salary: float | None = None,
     contract_type: str = "",
     smart: bool = True,
+    sponsors_only: bool = False,
 ) -> list[dict]:
     jobs = search_jobs(
         keyword=keyword,
@@ -44,6 +45,7 @@ def api_search(
         min_salary=min_salary,
         contract_type=contract_type,
         smart=smart,
+        sponsors_only=sponsors_only,
     )
     return [asdict(j) for j in jobs]
 
@@ -67,7 +69,7 @@ def api_poll(keyword: str, location: str = "", source: str = "", max_pages: int 
 
 
 @app.post("/api/jobs/nlsearch")
-def api_nlsearch(text: str, max_pages: int = 1, limit: int = 30) -> dict:
+def api_nlsearch(text: str, max_pages: int = 1, limit: int = 30, sponsors_only: bool = False) -> dict:
     import nl_search
 
     if not text.strip():
@@ -94,6 +96,7 @@ def api_nlsearch(text: str, max_pages: int = 1, limit: int = 30) -> dict:
         min_salary=parsed.min_salary,
         contract_type=parsed.contract_type,
         limit=limit,
+        sponsors_only=sponsors_only,
     )
 
     return {

@@ -22,12 +22,14 @@ def cmd_search(args: argparse.Namespace) -> None:
         limit=args.limit,
         min_salary=args.min_salary,
         smart=not args.no_smart,
+        sponsors_only=args.sponsors_only,
     )
     if not results:
         print("No matches in the local database yet. Run `python main.py poll` first to fetch postings.")
         return
     for job in results:
-        print(f"[{job.source}] {job.title} — {job.org_name}")
+        sponsor_note = "  ✓ registered visa sponsor" if job.visa_sponsor_likely else ""
+        print(f"[{job.source}] {job.title} — {job.org_name}{sponsor_note}")
         if job.location:
             print(f"    {job.location}")
         if job.salary_range:
@@ -94,12 +96,14 @@ def cmd_nlsearch(args: argparse.Namespace) -> None:
         min_salary=parsed.min_salary,
         contract_type=parsed.contract_type,
         limit=args.limit,
+        sponsors_only=args.sponsors_only,
     )
     if not results:
         print("[nlsearch] No matches.")
         return
     for job in results:
-        print(f"[{job.source}] {job.title} — {job.org_name}")
+        sponsor_note = "  ✓ registered visa sponsor" if job.visa_sponsor_likely else ""
+        print(f"[{job.source}] {job.title} — {job.org_name}{sponsor_note}")
         if job.location:
             print(f"    {job.location}")
         if job.salary_range:
@@ -169,6 +173,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_search.add_argument(
         "--no-smart", action="store_true", help="Match the literal keyword only, no related-term expansion"
     )
+    p_search.add_argument(
+        "--sponsors-only", action="store_true", help="Only show employers found in the UK licensed visa sponsor register"
+    )
     p_search.set_defaults(func=cmd_search)
 
     p_poll = sub.add_parser("poll", help="Fetch postings from connectors into the local database")
@@ -185,6 +192,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_nlsearch.add_argument("text")
     p_nlsearch.add_argument("--max-pages", type=int, default=1)
     p_nlsearch.add_argument("--limit", type=int, default=20)
+    p_nlsearch.add_argument(
+        "--sponsors-only", action="store_true", help="Only show employers found in the UK licensed visa sponsor register"
+    )
     p_nlsearch.set_defaults(func=cmd_nlsearch)
 
     p_tailor = sub.add_parser("tailor", help="Generate a tailored CV/cover letter for one job")
