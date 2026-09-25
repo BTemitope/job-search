@@ -40,15 +40,25 @@ def _poll_one_source(source_name: str, query: SearchQuery, max_pages: int, seen_
         return 0, [f"{source_name}: {e}"]
 
     saved = 0
-    with db.get_session() as session:
-        for ref in refs:
-            try:
-                raw = connector.fetch_detail(ref)
-                job = connector.normalize(raw)
+    for ref in refs:
+        try:
+            raw = connector.fetch_detail(ref)
+            job = connector.normalize(raw)
+            # Commit per job, not once for the whole ref list — if
+            # poll_sources()'s timeout backstop abandons this thread
+            # partway through (e.g. smart-search expansion multiplying a
+            # slow, correctly-rate-limited source's work well past the
+            # timeout), whatever was already fetched stays saved instead of
+            # being silently discarded because the one big commit never
+            # happened. Found live: an NL search with 4 expanded terms
+            # against NHS Jobs returned 0 results even though real jobs
+            # were being fetched the whole time — the single end-of-loop
+            # commit simply never got reached before the backstop fired.
+            with db.get_session() as session:
                 db.upsert_job(session, job, seen_at=seen_at)
-                saved += 1
-            except Exception as e:
-                errors.append(f"{source_name} — {ref.url}: {e}")
+            saved += 1
+        except Exception as e:
+            errors.append(f"{source_name} — {ref.url}: {e}")
 
     return saved, errors
 

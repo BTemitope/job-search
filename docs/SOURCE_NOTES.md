@@ -90,6 +90,33 @@ each source's thread opens its own session via the existing `get_session()` patt
 one across threads), so this only lifts sqlite3's overly strict default rejection of that; SQLite
 still serializes actual writes at the file level, no corruption risk.
 
+### Follow-up regression: smart-search expansion + the new timeout backstop combined badly
+
+Found live the next day: an NL search with query expansion ("Support Worker" → also "Care
+Assistant", "Healthcare Assistant", "Support Assistant") against the deployed app returned **0
+results** even though real matching jobs genuinely exist. Root cause: expansion multiplies a
+source's work by however many related terms were found (here, 4× — the original term plus 3
+expansions), and `_poll_one_source()` (in `polling.py`) was batching **every** job across **all**
+expanded terms into a single database session, committed only once at the very end of the whole
+loop. NHS Jobs' `discover()` alone across 4 terms takes ~10s and finds ~40 refs; each ref's
+`fetch_detail()` is separately rate-limited at ~3s — so processing all 40 takes another ~130s,
+comfortably longer than the 60s `SOURCE_POLL_TIMEOUT_SECONDS` backstop from the section above. The
+backstop correctly abandons that source's thread at 60s — but because the one commit was still 70s
+away, **nothing that thread had already fetched was ever saved**, even though it was doing
+completely legitimate, correctly-rate-limited work the whole time.
+
+**Fixed**: `_poll_one_source()` now opens a fresh session and commits after *each* job
+(`with db.get_session() as session: db.upsert_job(...)` moved inside the per-ref loop), not once
+for the whole batch. Live-verified with the exact reproduction case: `poll_sources()` itself still
+reports `saved: 0` at the 60s cutoff (its own bookkeeping gives up before the abandoned thread's
+final tally is knowable — a minor cosmetic inaccuracy in the returned counts, not fixed here), but
+calling `search_jobs()` immediately afterward — exactly what `nlsearch` does — found **10 real
+results** at that same 60-second mark, because those 10 jobs' commits had already landed
+individually before the cutoff. The abandoned thread also keeps running in the background exactly
+as designed and eventually commits the rest (confirmed: all 40 refs landed within a few minutes of
+real time), but the fix's actual value is that the *user's immediate result* is no longer all-or-
+nothing — partial, real progress within the time budget, instead of nothing.
+
 ## NHS Jobs (www.jobs.nhs.uk)
 
 **Checked:** 2026-09-24, from a sandboxed cloud dev environment (see caveat at the bottom).

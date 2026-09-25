@@ -74,6 +74,15 @@ deployed to Render via the included `render.yaml`.
   recorded as a timeout and abandoned instead. Confirmed: polling all four sources together (one
   genuinely hanging) now returns in exactly 60.0s with NHS Jobs' 10 real results intact, instead of
   90s+/effectively unbounded before.
+- **Phase 11 follow-up fix (found the next day, live)**: smart-search expansion combined badly with
+  the timeout above — a keyword expanding into 4 related terms multiplies a source's work 4x, and
+  the poll code was only committing all of a source's results in one batch at the very end. NHS
+  Jobs' correctly-rate-limited work for 4 terms takes ~140s, well past the 60s backstop, so the
+  backstop's abandonment meant **nothing got saved at all** — a real "Support Worker" search
+  returned 0 results despite matching jobs genuinely existing. Fixed to commit each job
+  individually as it's fetched, not once at the end. Live-verified with the exact reproduction:
+  the immediate search right after the 60s cutoff (what `nlsearch` actually does) now finds 10 real
+  results instead of 0, because that much had already been committed before time ran out.
 - **Browser extension autofill:** not started.
 
 ## Setup
