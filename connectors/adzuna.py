@@ -58,7 +58,13 @@ class AdzunaConnector(BaseConnector):
                 params["salary_min"] = int(query.min_salary)
 
             resp = self.client.get(f"{BASE_URL}/{page}", params=params)
-            resp.raise_for_status()
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                # Don't let app_id/app_key leak into logs/error output via
+                # the default exception message, which includes the full
+                # request URL (query string and all).
+                raise RuntimeError(f"Adzuna request failed: HTTP {e.response.status_code}") from None
             data = resp.json()
             results = data.get("results", [])
             if not results:
